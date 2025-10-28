@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Gestion Clinique{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="mb-4">Dashboard</h1>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card bg-primary text-white">
+                <div class="card-body">
+                    <h3>{{ stats.total_patients }}</h3>
+                    <p>Patients</p>
+                    <i class="bi bi-people position-absolute" style="font-size: 3rem; opacity: 0.3; right: 20px; top: 20px;"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card bg-success text-white">
+                <div class="card-body">
+                    <h3>{{ stats.total_rdv }}</h3>
+                    <p>RDV total</p>
+                    <i class="bi bi-calendar-check position-absolute" style="font-size: 3rem; opacity: 0.3; right: 20px; top: 20px;"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card bg-info text-white">
+                <div class="card-body">
+                    <h3>{{ stats.rdv_passes }}</h3>
+                    <p>RDV passés</p>
+                    <i class="bi bi-calendar-x position-absolute" style="font-size: 3rem; opacity: 0.3; right: 20px; top: 20px;"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card stat-card bg-warning text-white">
+                <div class="card-body">
+                    <h3>{{ stats.rdv_futurs }}</h3>
+                    <p>RDV futurs</p>
+                    <i class="bi bi-calendar-plus position-absolute" style="font-size: 3rem; opacity: 0.3; right: 20px; top: 20px;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Revenue Cards -->
+    <div class="row mb-4">
+        <div class="col-md-6 mb-3">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <h5 class="card-title">Revenu total encaissé</h5>
+                    <h2 class="text-success">{{ stats.revenu_total | format_currency }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <h5 class="card-title">Caisse du jour</h5>
+                    <h2 class="text-primary">{{ stats.caisse_jour | format_currency }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- State Distribution -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Répartition par état</h5>
+                    <div class="row text-center mt-3">
+                        <div class="col-md-4">
+                            <span class="badge bg-danger" style="font-size: 1.2rem; padding: 10px 20px;">
+                                Annulé: {{ stats.repartition_etat.annule }}
+                            </span>
+                        </div>
+                        <div class="col-md-4">
+                            <span class="badge bg-warning" style="font-size: 1.2rem; padding: 10px 20px;">
+                                En attente: {{ stats.repartition_etat.en_attente }}
+                            </span>
+                        </div>
+                        <div class="col-md-4">
+                            <span class="badge bg-success" style="font-size: 1.2rem; padding: 10px 20px;">
+                                Validé: {{ stats.repartition_etat.valide }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="row">
+        <div class="col-md-7 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">RDV par jour</h5>
+                    <canvas id="rdvParJourChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-5 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Top 5 services</h5>
+                    <canvas id="topServicesChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // RDV par jour - Bar Chart
+    const rdvParJourCtx = document.getElementById('rdvParJourChart').getContext('2d');
+    const rdvParJourData = {{ stats.rdv_par_jour | tojson }};
+
+    new Chart(rdvParJourCtx, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(rdvParJourData),
+            datasets: [{
+                label: 'Nombre de RDV',
+                data: Object.values(rdvParJourData),
+                backgroundColor: 'rgba(78, 115, 223, 0.8)',
+                borderColor: 'rgba(78, 115, 223, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+
+    // Top Services - Donut Chart
+    const topServicesCtx = document.getElementById('topServicesChart').getContext('2d');
+    const topServices = {{ stats.top_services | tojson }};
+
+    new Chart(topServicesCtx, {
+        type: 'doughnut',
+        data: {
+            labels: topServices.map(s => s.nom),
+            datasets: [{
+                data: topServices.map(s => s.count),
+                backgroundColor: [
+                    'rgba(78, 115, 223, 0.8)',
+                    'rgba(28, 200, 138, 0.8)',
+                    'rgba(246, 194, 62, 0.8)',
+                    'rgba(231, 74, 59, 0.8)',
+                    'rgba(133, 135, 150, 0.8)'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true
+        }
+    });
+</script>
+{% endblock %}
+from logging.config import fileConfig
+
+from sqlalchemy import engine_from_config
+from sqlalchemy import pool
+
+from alembic import context
+
+# Import your models
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+
+from database import Base
+from models import User, Patient, Service, Appointment, Payment, AuditLog
+from config import get_settings
+
+# this is the Alembic Config object
+config = context.config
+
+# Set sqlalchemy.url from settings
+settings = get_settings()
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+
+# Interpret the config file for Python logging.
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+
+# add your model's MetaData object here
+target_metadata = Base.metadata
+
+
+def run_migrations_offline() -> None:
+    """Run migrations in 'offline' mode."""
+    url = config.get_main_option("sqlalchemy.url")
+    context.configure(
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+    )
+
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def run_migrations_online() -> None:
+    """Run migrations in 'online' mode."""
+    connectable = engine_from_config(
+        config.get_section(config.config_ini_section, {}),
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
+
+    with connectable.connect() as connection:
+        context.configure(
+            connection=connection, target_metadata=target_metadata
+        )
+
+        with context.begin_transaction():
+            context.run_migrations()
+
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()
+
