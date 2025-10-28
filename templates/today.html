@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}RDV Aujourd'hui - Gestion Clinique{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="mb-4">RDV Aujourd'hui</h1>
+
+    <!-- Hero Section -->
+    <div class="hero-section mb-4">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h2>Dr. Nom du Médecin</h2>
+                <p class="mb-0">Clinique Dentaire - Spécialiste en Soins Dentaires</p>
+                <p class="mb-0"><i class="bi bi-telephone"></i> +213 XXX XXX XXX</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <h3>{{ appointments|length }}</h3>
+                <p class="mb-0">Rendez-vous aujourd'hui</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Services Section -->
+        <div class="col-md-9 mb-4">
+            <h4 class="mb-3">Nos Services</h4>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <div class="service-tile">
+                        <i class="bi bi-heart-pulse text-primary"></i>
+                        <h5>Soins généraux</h5>
+                        <p class="text-muted">Consultations et traitements dentaires courants</p>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="service-tile">
+                        <i class="bi bi-gear text-success"></i>
+                        <h5>Implants dentaires</h5>
+                        <p class="text-muted">Solutions permanentes pour dents manquantes</p>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="service-tile">
+                        <i class="bi bi-exclamation-triangle text-danger"></i>
+                        <h5>Urgences dentaires</h5>
+                        <p class="text-muted">Interventions rapides 24/7</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Today's Appointments Table -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Rendez-vous du jour</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Heure</th>
+                                    <th>Nom</th>
+                                    <th>Prénom</th>
+                                    <th>Service</th>
+                                    <th>État</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for appt in appointments %}
+                                <tr>
+                                    <td><strong>{{ appt.heure | format_time }}</strong></td>
+                                    <td>{{ appt.patient.nom }}</td>
+                                    <td>{{ appt.patient.prenom }}</td>
+                                    <td>{{ appt.service.nom }}</td>
+                                    <td>
+                                        {% if appt.etat.value == 'en_attente' %}
+                                        <span class="badge bg-warning">En attente</span>
+                                        {% elif appt.etat.value == 'valide' %}
+                                        <span class="badge bg-success">Validé</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">Annulé</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if appt.etat.value == 'en_attente' %}
+                                        <button class="btn btn-sm btn-success" onclick="validateAppointment({{ appt.id }})">
+                                            <i class="bi bi-check-circle"></i> Valider
+                                        </button>
+                                        {% endif %}
+                                        <button class="btn btn-sm btn-info" onclick="viewDetails({{ appt.id }})">
+                                            <i class="bi bi-eye"></i> Détails
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">
+                                        Aucun rendez-vous aujourd'hui
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mini Calendar -->
+        <div class="col-md-3">
+            <div class="mini-calendar">
+                <h5 class="text-center mb-3">Calendrier</h5>
+                <div id="miniCalendar"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Simple mini calendar display (current month)
+    function createMiniCalendar() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth();
+
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+                           'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+
+        let html = `<div class="text-center mb-2"><strong>${monthNames[month]} ${year}</strong></div>`;
+        html += '<table class="table table-sm table-borderless"><thead><tr>';
+
+        const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+        dayNames.forEach(day => {
+            html += `<th class="text-center" style="font-size: 0.8rem;">${day}</th>`;
+        });
+        html += '</tr></thead><tbody><tr>';
+
+        // Empty cells before first day
+        for (let i = 0; i < firstDay; i++) {
+            html += '<td></td>';
+        }
+
+        // Days
+        for (let day = 1; day <= daysInMonth; day++) {
+            if ((firstDay + day - 1) % 7 === 0 && day !== 1) {
+                html += '</tr><tr>';
+            }
+
+            const isToday = (day === now.getDate()) ? 'bg-primary text-white' : '';
+            html += `<td class="text-center ${isToday}" style="border-radius: 50%; padding: 5px;">${day}</td>`;
+        }
+
+        html += '</tr></tbody></table>';
+        document.getElementById('miniCalendar').innerHTML = html;
+    }
+
+    createMiniCalendar();
+
+    function validateAppointment(id) {
+        fetch(`/api/rdv/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ etat: 'valide' })
+        })
+        .then(response => response.json())
+        .then(data => {
+            showToast('Rendez-vous validé', 'success');
+            setTimeout(() => location.reload(), 1000);
+        })
+        .catch(error => {
+            showToast('Erreur lors de la validation', 'error');
+        });
+    }
+
+    function viewDetails(id) {
+        window.location.href = `/rdv?highlight=${id}`;
+    }
+</script>
+{% endblock %}
+

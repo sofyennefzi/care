@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}En Attente - Gestion Clinique{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="mb-4">Rendez-vous en attente</h1>
+
+    <div class="card">
+        <div class="card-body">
+            {% if appointments %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Client</th>
+                            <th>Date</th>
+                            <th>Heure</th>
+                            <th>Service</th>
+                            <th>Prix</th>
+                            <th>Versé</th>
+                            <th>Reste</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for appt in appointments %}
+                        <tr>
+                            <td>{{ appt.patient.prenom }} {{ appt.patient.nom }}</td>
+                            <td>{{ appt.date | format_date }}</td>
+                            <td>{{ appt.heure | format_time }}</td>
+                            <td>{{ appt.service.nom }}</td>
+                            <td>{{ appt.prix | format_currency }}</td>
+                            <td>{{ appt.verse | format_currency }}</td>
+                            <td class="text-danger">{{ appt.reste | format_currency }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-success" onclick="validateRdv({{ appt.id }})">
+                                    <i class="bi bi-check-circle"></i> Valider
+                                </button>
+                                <button class="btn btn-sm btn-danger" onclick="cancelRdv({{ appt.id }})">
+                                    <i class="bi bi-x-circle"></i> Annuler
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info text-center" role="alert">
+                <i class="bi bi-info-circle"></i> Aucun rendez-vous en attente
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function validateRdv(id) {
+        fetch(`/api/rdv/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ etat: 'valide' })
+        })
+        .then(response => response.json())
+        .then(data => {
+            showToast('Rendez-vous validé', 'success');
+            setTimeout(() => location.reload(), 1000);
+        })
+        .catch(error => {
+            showToast('Erreur lors de la validation', 'error');
+        });
+    }
+
+    function cancelRdv(id) {
+        if (!confirm('Êtes-vous sûr de vouloir annuler ce rendez-vous ?')) return;
+
+        fetch(`/api/rdv/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ etat: 'annule' })
+        })
+        .then(response => response.json())
+        .then(data => {
+            showToast('Rendez-vous annulé', 'success');
+            setTimeout(() => location.reload(), 1000);
+        })
+        .catch(error => {
+            showToast('Erreur lors de l\'annulation', 'error');
+        });
+    }
+</script>
+{% endblock %}
+

@@ -1,0 +1,536 @@
+{% extends "base.html" %}
+
+{% block title %}Rendez-vous - Gestion Clinique{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Rendez-vous</h1>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addRdvModal">
+            <i class="bi bi-plus-circle"></i> Ajouter RDV
+        </button>
+    </div>
+
+    <!-- Search Box -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <form method="GET" action="/rdv">
+                <div class="search-box">
+                    <i class="bi bi-search"></i>
+                    <input type="text" class="form-control" name="search" placeholder="Rechercher un RDV..." value="{{ search }}">
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Appointments Table -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Client</th>
+                            <th>Date</th>
+                            <th>Heure</th>
+                            <th>Soin</th>
+                            <th>Prix</th>
+                            <th>Versé</th>
+                            <th>Reste</th>
+                            <th>État</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for appt in appointments %}
+                        <tr>
+                            <td>{{ appt.patient.prenom }} {{ appt.patient.nom }}</td>
+                            <td>{{ appt.date | format_date }}</td>
+                            <td>{{ appt.heure | format_time }}</td>
+                            <td>{{ appt.service.nom }}</td>
+                            <td>{{ appt.prix | format_currency }}</td>
+                            <td>{{ appt.verse | format_currency }}</td>
+                            <td class="{% if appt.reste > 0 %}text-danger{% else %}text-success{% endif %}">
+                                {{ appt.reste | format_currency }}
+                            </td>
+                            <td>
+                                {% if appt.etat.value == 'en_attente' %}
+                                <span class="badge bg-warning">En attente</span>
+                                {% elif appt.etat.value == 'valide' %}
+                                <span class="badge bg-success">Validé</span>
+                                {% else %}
+                                <span class="badge bg-danger">Annulé</span>
+                                {% endif %}
+                            </td>
+                            <td class="action-buttons">
+                                <button class="btn btn-sm btn-info" onclick="editRdv({{ appt.id }})">
+                                    <i class="bi bi-pencil"></i> Modifier
+                                </button>
+                                {% if appt.etat.value != 'annule' %}
+                                <button class="btn btn-sm btn-danger" onclick="cancelRdv({{ appt.id }})">
+                                    <i class="bi bi-x-circle"></i> Annuler
+                                </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add RDV Modal -->
+<div class="modal fade" id="addRdvModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Ajouter un rendez-vous</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addRdvForm">
+                    <div class="mb-3">
+                        <label class="form-label">Client *</label>
+                        <select class="form-select" name="patient_id" required>
+                            <option value="">Sélectionner un client</option>
+                            {% for patient in patients %}
+                            <option value="{{ patient.id }}">{{ patient.prenom }} {{ patient.nom }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Service *</label>
+                        <select class="form-select" name="service_id" required onchange="updatePrice(this)">
+                            <option value="">Sélectionner un service</option>
+                            {% for service in services %}
+                            <option value="{{ service.id }}" data-prix="{{ service.prix_base }}">
+                                {{ service.nom }} - {{ service.prix_base | format_currency }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Date *</label>
+                            <input type="date" class="form-control" name="date" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Heure *</label>
+                            <input type="time" class="form-control" name="heure" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Prix *</label>
+                        <input type="number" step="0.01" class="form-control" name="prix" id="add_prix" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Versé</label>
+                        <input type="number" step="0.01" class="form-control" name="verse" value="0">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">État</label>
+                        <select class="form-select" name="etat">
+                            <option value="en_attente">En attente</option>
+                            <option value="valide">Validé</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" name="notes" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="submitRdv()">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit RDV Modal -->
+<div class="modal fade" id="editRdvModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Modifier le rendez-vous</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editRdvForm">
+                    <input type="hidden" id="edit_rdv_id">
+                    <div class="mb-3">
+                        <label class="form-label">Date *</label>
+                        <input type="date" class="form-control" id="edit_date" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Heure *</label>
+                        <input type="time" class="form-control" id="edit_heure" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Prix *</label>
+                        <input type="number" step="0.01" class="form-control" id="edit_prix" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">État</label>
+                        <select class="form-select" id="edit_etat">
+                            <option value="en_attente">En attente</option>
+                            <option value="valide">Validé</option>
+                            <option value="annule">Annulé</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" id="edit_notes" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="updateRdv()">Mettre à jour</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function updatePrice(select) {
+        const option = select.options[select.selectedIndex];
+        const prix = option.getAttribute('data-prix');
+        if (prix) {
+            document.getElementById('add_prix').value = prix;
+        }
+    }
+
+    function submitRdv() {
+        const form = document.getElementById('addRdvForm');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        fetch('/api/rdv', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => Promise.reject(err));
+            }
+            return response.json();
+        })
+        .then(data => {
+            showToast('Rendez-vous ajouté avec succès', 'success');
+            setTimeout(() => location.reload(), 1000);
+        })
+        .catch(error => {
+            showToast(error.detail || 'Erreur lors de l\'ajout', 'error');
+        });
+    }
+
+    function editRdv(id) {
+        fetch(`/api/rdv/${id}`)
+        .then(response => response.json())
+        .then(appt => {
+            document.getElementById('edit_rdv_id').value = appt.id;
+            document.getElementById('edit_date').value = appt.date;
+            document.getElementById('edit_heure').value = appt.heure;
+            document.getElementById('edit_prix').value = appt.prix;
+            document.getElementById('edit_etat').value = appt.etat;
+            document.getElementById('edit_notes').value = appt.notes || '';
+
+            new bootstrap.Modal(document.getElementById('editRdvModal')).show();
+        });
+    }
+
+    function updateRdv() {
+        const id = document.getElementById('edit_rdv_id').value;
+        const data = {
+            date: document.getElementById('edit_date').value,
+            heure: document.getElementById('edit_heure').value,
+            prix: parseFloat(document.getElementById('edit_prix').value),
+            etat: document.getElementById('edit_etat').value,
+            notes: document.getElementById('edit_notes').value
+        };
+
+        fetch(`/api/rdv/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => Promise.reject(err));
+            }
+            return response.json();
+        })
+        .then(data => {
+            showToast('Rendez-vous modifié avec succès', 'success');
+            setTimeout(() => location.reload(), 1000);
+        })
+        .catch(error => {
+            showToast(error.detail || 'Erreur lors de la modification', 'error');
+        });
+    }
+
+    function cancelRdv(id) {
+        if (!confirm('Êtes-vous sûr de vouloir annuler ce rendez-vous ?')) return;
+
+        fetch(`/api/rdv/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ etat: 'annule' })
+        })
+        .then(response => response.json())
+        .then(data => {
+            showToast('Rendez-vous annulé', 'success');
+            setTimeout(() => location.reload(), 1000);
+        })
+        .catch(error => {
+            showToast('Erreur lors de l\'annulation', 'error');
+        });
+    }
+</script>
+{% endblock %}
+{% extends "base.html" %}
+
+{% block title %}Clients - Gestion Clinique{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Clients</h1>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPatientModal">
+            <i class="bi bi-plus-circle"></i> Ajouter Client
+        </button>
+    </div>
+
+    <!-- Search Box -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <form method="GET" action="/clients">
+                <div class="search-box">
+                    <i class="bi bi-search"></i>
+                    <input type="text" class="form-control" name="search" placeholder="Rechercher un client..." value="{{ search }}">
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Patients Table -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nom</th>
+                            <th>Prénom</th>
+                            <th>Téléphone</th>
+                            <th>Email</th>
+                            <th>Date de naissance</th>
+                            <th>Créé le</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for patient in patients %}
+                        <tr>
+                            <td>{{ patient.id }}</td>
+                            <td>{{ patient.nom }}</td>
+                            <td>{{ patient.prenom }}</td>
+                            <td>{{ patient.phone or '-' }}</td>
+                            <td>{{ patient.email or '-' }}</td>
+                            <td>{{ patient.date_naissance | format_date if patient.date_naissance else '-' }}</td>
+                            <td>{{ patient.created_at.strftime('%Y-%m-%d') }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-info" onclick="editPatient({{ patient.id }})">
+                                    <i class="bi bi-pencil"></i> Modifier
+                                </button>
+                                <button class="btn btn-sm btn-danger" onclick="deletePatient({{ patient.id }})">
+                                    <i class="bi bi-trash"></i> Supprimer
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Patient Modal -->
+<div class="modal fade" id="addPatientModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Ajouter un client</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addPatientForm">
+                    <div class="mb-3">
+                        <label class="form-label">Nom *</label>
+                        <input type="text" class="form-control" name="nom" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Prénom *</label>
+                        <input type="text" class="form-control" name="prenom" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Téléphone</label>
+                        <input type="text" class="form-control" name="phone">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Date de naissance</label>
+                        <input type="date" class="form-control" name="date_naissance">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" name="notes" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="submitPatient()">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Patient Modal -->
+<div class="modal fade" id="editPatientModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Modifier le client</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editPatientForm">
+                    <input type="hidden" id="edit_patient_id">
+                    <div class="mb-3">
+                        <label class="form-label">Nom *</label>
+                        <input type="text" class="form-control" id="edit_nom" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Prénom *</label>
+                        <input type="text" class="form-control" id="edit_prenom" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Téléphone</label>
+                        <input type="text" class="form-control" id="edit_phone">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" id="edit_email">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Date de naissance</label>
+                        <input type="date" class="form-control" id="edit_date_naissance">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" id="edit_notes" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="updatePatient()">Mettre à jour</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function submitPatient() {
+        const form = document.getElementById('addPatientForm');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        fetch('/api/patients', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            showToast('Client ajouté avec succès', 'success');
+            setTimeout(() => location.reload(), 1000);
+        })
+        .catch(error => {
+            showToast('Erreur lors de l\'ajout', 'error');
+        });
+    }
+
+    function editPatient(id) {
+        fetch(`/api/patients/${id}`)
+        .then(response => response.json())
+        .then(patient => {
+            document.getElementById('edit_patient_id').value = patient.id;
+            document.getElementById('edit_nom').value = patient.nom;
+            document.getElementById('edit_prenom').value = patient.prenom;
+            document.getElementById('edit_phone').value = patient.phone || '';
+            document.getElementById('edit_email').value = patient.email || '';
+            document.getElementById('edit_date_naissance').value = patient.date_naissance || '';
+            document.getElementById('edit_notes').value = patient.notes || '';
+
+            new bootstrap.Modal(document.getElementById('editPatientModal')).show();
+        });
+    }
+
+    function updatePatient() {
+        const id = document.getElementById('edit_patient_id').value;
+        const data = {
+            nom: document.getElementById('edit_nom').value,
+            prenom: document.getElementById('edit_prenom').value,
+            phone: document.getElementById('edit_phone').value,
+            email: document.getElementById('edit_email').value,
+            date_naissance: document.getElementById('edit_date_naissance').value,
+            notes: document.getElementById('edit_notes').value
+        };
+
+        fetch(`/api/patients/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            showToast('Client modifié avec succès', 'success');
+            setTimeout(() => location.reload(), 1000);
+        })
+        .catch(error => {
+            showToast('Erreur lors de la modification', 'error');
+        });
+    }
+
+    function deletePatient(id) {
+        if (!confirm('Êtes-vous sûr de vouloir supprimer ce client ?')) return;
+
+        fetch(`/api/patients/${id}`, { method: 'DELETE' })
+        .then(response => response.json())
+        .then(data => {
+            showToast('Client supprimé avec succès', 'success');
+            setTimeout(() => location.reload(), 1000);
+        })
+        .catch(error => {
+            showToast('Erreur lors de la suppression', 'error');
+        });
+    }
+</script>
+{% endblock %}
+

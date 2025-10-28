@@ -1,0 +1,384 @@
+{% extends "base.html" %}
+
+{% block title %}Paiements - Gestion Clinique{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="mb-4">Paiements</h1>
+
+    <!-- Caisse du jour -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card stat-card bg-success text-white">
+                <div class="card-body">
+                    <h3>{{ caisse_jour | format_currency }}</h3>
+                    <p>Caisse du jour</p>
+                    <i class="bi bi-cash-stack position-absolute" style="font-size: 4rem; opacity: 0.3; right: 30px; top: 20px;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Appointments with payments -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Rendez-vous et paiements</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Client</th>
+                            <th>Date RDV</th>
+                            <th>Service</th>
+                            <th>Prix</th>
+                            <th>Versé</th>
+                            <th>Reste</th>
+                            <th>État</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for appt in appointments %}
+                        <tr class="{% if appt.reste > 0 %}table-warning{% endif %}">
+                            <td>{{ appt.patient.prenom }} {{ appt.patient.nom }}</td>
+                            <td>{{ appt.date | format_date }}</td>
+                            <td>{{ appt.service.nom }}</td>
+                            <td>{{ appt.prix | format_currency }}</td>
+                            <td>{{ appt.verse | format_currency }}</td>
+                            <td>
+                                <strong class="{% if appt.reste > 0 %}text-danger{% else %}text-success{% endif %}">
+                                    {{ appt.reste | format_currency }}
+                                </strong>
+                            </td>
+                            <td>
+                                {% if appt.etat.value == 'en_attente' %}
+                                <span class="badge bg-warning">En attente</span>
+                                {% elif appt.etat.value == 'valide' %}
+                                <span class="badge bg-success">Validé</span>
+                                {% else %}
+                                <span class="badge bg-danger">Annulé</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if appt.etat.value != 'annule' and appt.reste > 0 %}
+                                <button class="btn btn-sm btn-primary" onclick="addPayment({{ appt.id }}, '{{ appt.patient.prenom }} {{ appt.patient.nom }}', {{ appt.reste }})">
+                                    <i class="bi bi-cash"></i> Ajouter paiement
+                                </button>
+                                {% endif %}
+                                <button class="btn btn-sm btn-info" onclick="viewPayments({{ appt.id }})">
+                                    <i class="bi bi-list"></i> Historique
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Payment Modal -->
+<div class="modal fade" id="addPaymentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Ajouter un paiement</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <strong>Client:</strong> <span id="payment_client_name"></span>
+                </div>
+                <div class="mb-3">
+                    <strong>Reste à payer:</strong> <span id="payment_reste" class="text-danger"></span>
+                </div>
+                <hr>
+                <form id="addPaymentForm">
+                    <input type="hidden" id="payment_appointment_id">
+                    <div class="mb-3">
+                        <label class="form-label">Montant *</label>
+                        <input type="number" step="0.01" class="form-control" id="payment_montant" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mode de paiement *</label>
+                        <select class="form-select" id="payment_mode" required>
+                            <option value="espece">Espèce</option>
+                            <option value="carte">Carte bancaire</option>
+                            <option value="virement">Virement</option>
+                            <option value="cheque">Chèque</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="submitPayment()">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Payments Modal -->
+<div class="modal fade" id="viewPaymentsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Historique des paiements</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="paymentsHistory"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function addPayment(appointmentId, clientName, reste) {
+        document.getElementById('payment_appointment_id').value = appointmentId;
+        document.getElementById('payment_client_name').textContent = clientName;
+        document.getElementById('payment_reste').textContent = reste.toFixed(2) + ' DA';
+        document.getElementById('payment_montant').value = reste.toFixed(2);
+        document.getElementById('payment_montant').max = reste.toFixed(2);
+
+        new bootstrap.Modal(document.getElementById('addPaymentModal')).show();
+    }
+
+    function submitPayment() {
+        const appointmentId = document.getElementById('payment_appointment_id').value;
+        const montant = parseFloat(document.getElementById('payment_montant').value);
+        const mode = document.getElementById('payment_mode').value;
+
+        if (!montant || montant <= 0) {
+            showToast('Montant invalide', 'error');
+            return;
+        }
+
+        fetch(`/api/rdv/${appointmentId}/payments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                appointment_id: parseInt(appointmentId),
+                montant: montant,
+                mode: mode
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => Promise.reject(err));
+            }
+            return response.json();
+        })
+        .then(data => {
+            showToast('Paiement enregistré avec succès', 'success');
+            setTimeout(() => location.reload(), 1000);
+        })
+        .catch(error => {
+            showToast(error.detail || 'Erreur lors de l\'enregistrement', 'error');
+        });
+    }
+
+    function viewPayments(appointmentId) {
+        fetch(`/api/rdv/${appointmentId}/payments`)
+        .then(response => response.json())
+        .then(payments => {
+            let html = '';
+
+            if (payments.length === 0) {
+                html = '<div class="alert alert-info">Aucun paiement enregistré</div>';
+            } else {
+                html = '<div class="table-responsive"><table class="table table-sm">';
+                html += '<thead><tr><th>Date</th><th>Montant</th><th>Mode</th></tr></thead><tbody>';
+
+                payments.forEach(payment => {
+                    const date = new Date(payment.created_at).toLocaleDateString('fr-FR');
+                    html += `<tr>
+                        <td>${date}</td>
+                        <td>${payment.montant.toFixed(2)} DA</td>
+                        <td><span class="badge bg-secondary">${payment.mode}</span></td>
+                    </tr>`;
+                });
+
+                html += '</tbody></table></div>';
+
+                // Calculate total
+                const total = payments.reduce((sum, p) => sum + parseFloat(p.montant), 0);
+                html += `<div class="alert alert-success mt-3">
+                    <strong>Total versé:</strong> ${total.toFixed(2)} DA
+                </div>`;
+            }
+
+            document.getElementById('paymentsHistory').innerHTML = html;
+            new bootstrap.Modal(document.getElementById('viewPaymentsModal')).show();
+        })
+        .catch(error => {
+            showToast('Erreur lors du chargement de l\'historique', 'error');
+        });
+    }
+</script>
+{% endblock %}
+{% extends "base.html" %}
+
+{% block title %}Agenda - Gestion Clinique{% endblock %}
+
+{% block extra_css %}
+<style>
+    #calendar {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="mb-4">Agenda</h1>
+
+    <div class="card">
+        <div class="card-body">
+            <div id="calendar"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Event Details Modal -->
+<div class="modal fade" id="eventModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Détails du rendez-vous</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="eventDetails"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                <button type="button" class="btn btn-primary" id="editEventBtn">Modifier</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const calendarEl = document.getElementById('calendar');
+
+        const calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            locale: 'fr',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            },
+            buttonText: {
+                today: 'Aujourd\'hui',
+                month: 'Mois',
+                week: 'Semaine',
+                day: 'Jour'
+            },
+            events: function(info, successCallback, failureCallback) {
+                fetch(`/api/agenda?start=${info.startStr}&end=${info.endStr}`)
+                    .then(response => response.json())
+                    .then(data => successCallback(data))
+                    .catch(error => failureCallback(error));
+            },
+            eventClick: function(info) {
+                showEventDetails(info.event);
+            },
+            eventDrop: function(info) {
+                updateEventDateTime(info.event);
+            },
+            editable: true,
+            eventResizableFromStart: false,
+            eventDurationEditable: false
+        });
+
+        calendar.render();
+
+        function showEventDetails(event) {
+            const props = event.extendedProps;
+            const detailsHTML = `
+                <div class="mb-3">
+                    <strong>Patient:</strong> ${props.patientName}
+                </div>
+                <div class="mb-3">
+                    <strong>Service:</strong> ${props.serviceName}
+                </div>
+                <div class="mb-3">
+                    <strong>Date:</strong> ${new Date(event.start).toLocaleDateString('fr-FR')}
+                </div>
+                <div class="mb-3">
+                    <strong>Heure:</strong> ${new Date(event.start).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}
+                </div>
+                <div class="mb-3">
+                    <strong>État:</strong>
+                    ${props.etat === 'en_attente' ? '<span class="badge bg-warning">En attente</span>' :
+                      props.etat === 'valide' ? '<span class="badge bg-success">Validé</span>' :
+                      '<span class="badge bg-danger">Annulé</span>'}
+                </div>
+                <div class="mb-3">
+                    <strong>Prix:</strong> ${props.prix.toFixed(2)} DA
+                </div>
+                <div class="mb-3">
+                    <strong>Versé:</strong> ${props.verse.toFixed(2)} DA
+                </div>
+                <div class="mb-3">
+                    <strong>Reste:</strong> <span class="text-danger">${props.reste.toFixed(2)} DA</span>
+                </div>
+            `;
+
+            document.getElementById('eventDetails').innerHTML = detailsHTML;
+            document.getElementById('editEventBtn').onclick = function() {
+                window.location.href = `/rdv?highlight=${event.id}`;
+            };
+
+            new bootstrap.Modal(document.getElementById('eventModal')).show();
+        }
+
+        function updateEventDateTime(event) {
+            const newDate = event.start.toISOString().split('T')[0];
+            const newTime = event.start.toTimeString().slice(0, 5);
+
+            fetch(`/api/rdv/${event.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    date: newDate,
+                    heure: newTime
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        showToast(err.detail || 'Erreur lors du déplacement', 'error');
+                        calendar.refetchEvents();
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data) {
+                    showToast('Rendez-vous déplacé avec succès', 'success');
+                }
+            })
+            .catch(error => {
+                showToast('Erreur lors du déplacement', 'error');
+                calendar.refetchEvents();
+            });
+        }
+    });
+</script>
+{% endblock %}
+
