@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
+from sqlalchemy.orm import joinedload
 from typing import Optional, List
 from datetime import datetime, date, time
 from decimal import Decimal
@@ -14,7 +15,7 @@ def create_audit_log(db: Session, user_id: Optional[int], action: str, target_ta
         action=action,
         target_table=target_table,
         target_id=target_id,
-        metadata=metadata
+        meta_data=metadata
     )
     db.add(log)
     db.commit()
@@ -109,6 +110,40 @@ def get_service(db: Session, service_id: int) -> Optional[Service]:
     return db.query(Service).filter(Service.id == service_id).first()
 
 
+def create_service(db: Session, service: schemas.ServiceCreate, user_id: Optional[int] = None) -> Service:
+    db_service = Service(**service.model_dump())
+    db.add(db_service)
+    db.commit()
+    db.refresh(db_service)
+    create_audit_log(db, user_id, "CREATE", "services", db_service.id)
+    return db_service
+
+
+def update_service(db: Session, service_id: int, service: schemas.ServiceUpdate, user_id: Optional[int] = None) -> Optional[Service]:
+    db_service = get_service(db, service_id)
+    if not db_service:
+        return None
+
+    update_data = service.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_service, field, value)
+
+    db.commit()
+    db.refresh(db_service)
+    create_audit_log(db, user_id, "UPDATE", "services", service_id, update_data)
+    return db_service
+
+
+def delete_service(db: Session, service_id: int, user_id: Optional[int] = None) -> bool:
+    db_service = get_service(db, service_id)
+    if not db_service:
+        return False
+    db.delete(db_service)
+    db.commit()
+    create_audit_log(db, user_id, "DELETE", "services", service_id)
+    return True
+
+
 # Appointment CRUD
 def get_appointments(
     db: Session,
@@ -120,7 +155,8 @@ def get_appointments(
     date_to: Optional[date] = None,
     patient_id: Optional[int] = None
 ) -> List[Appointment]:
-    query = db.query(Appointment)
+    # Eagerly load patient and service relationships to avoid DetachedInstanceError
+    query = db.query(Appointment).options(joinedload(Appointment.patient), joinedload(Appointment.service))
 
     if search:
         search_term = f"%{search}%"
@@ -147,7 +183,7 @@ def get_appointments(
 
 
 def get_appointment(db: Session, appointment_id: int) -> Optional[Appointment]:
-    return db.query(Appointment).filter(Appointment.id == appointment_id).first()
+    return db.query(Appointment).options(joinedload(Appointment.patient), joinedload(Appointment.service)).filter(Appointment.id == appointment_id).first()
 
 
 def check_appointment_overlap(db: Session, patient_id: int, date_val: date, heure_val: time, exclude_id: Optional[int] = None) -> bool:
@@ -220,7 +256,7 @@ def delete_appointment(db: Session, appointment_id: int, user_id: Optional[int] 
 
 def get_today_appointments(db: Session) -> List[Appointment]:
     today = date.today()
-    return db.query(Appointment).filter(Appointment.date == today).order_by(Appointment.heure).all()
+    return db.query(Appointment).options(joinedload(Appointment.patient), joinedload(Appointment.service)).filter(Appointment.date == today).order_by(Appointment.heure).all()
 
 
 # Payment CRUD
@@ -265,4 +301,3 @@ def get_caisse_du_jour(db: Session) -> Decimal:
     ).scalar()
 
     return total or Decimal("0")
-

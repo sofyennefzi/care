@@ -1,0 +1,232 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv
+venv/
+ENV/
+env/
+*.log
+*.sqlite3
+.env
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+alembic/versions/*.py
+!alembic/versions/__init__.py
+"""
+Seed script to populate the database with initial test data
+"""
+from datetime import datetime, date, time, timedelta
+from decimal import Decimal
+import random
+from sqlalchemy.orm import Session
+from database import SessionLocal, engine
+from models import Base, User, Patient, Service, Appointment, Payment, UserRole, AppointmentState, PaymentMode
+from auth import get_password_hash
+
+# Create tables
+Base.metadata.create_all(bind=engine)
+
+def seed_database():
+    db = SessionLocal()
+
+    try:
+        print("Starting database seeding...")
+
+        # Check if already seeded
+        if db.query(User).count() > 0:
+            print("Database already seeded. Skipping...")
+            return
+
+        # 1. Create users
+        print("Creating users...")
+        users = [
+            User(username="admin", password_hash=get_password_hash("admin123"), role=UserRole.admin, is_active=True),
+            User(username="staff1", password_hash=get_password_hash("staff123"), role=UserRole.staff, is_active=True),
+            User(username="staff2", password_hash=get_password_hash("staff123"), role=UserRole.staff, is_active=True),
+        ]
+        db.add_all(users)
+        db.commit()
+        print(f"Created {len(users)} users")
+
+        # 2. Create services
+        print("Creating services...")
+        services = [
+            Service(nom="Consultation", description="Consultation dentaire générale", prix_base=Decimal("2000.00"), actif=True),
+            Service(nom="Détartrage", description="Nettoyage dentaire professionnel", prix_base=Decimal("3000.00"), actif=True),
+            Service(nom="Extraction dentaire", description="Extraction d'une dent", prix_base=Decimal("2500.00"), actif=True),
+            Service(nom="Plombage", description="Traitement de carie", prix_base=Decimal("3500.00"), actif=True),
+            Service(nom="Couronne", description="Pose de couronne dentaire", prix_base=Decimal("15000.00"), actif=True),
+            Service(nom="Implant", description="Implant dentaire", prix_base=Decimal("50000.00"), actif=True),
+            Service(nom="Blanchiment", description="Blanchiment des dents", prix_base=Decimal("12000.00"), actif=True),
+            Service(nom="Orthodontie", description="Appareil dentaire", prix_base=Decimal("80000.00"), actif=True),
+            Service(nom="Dévitalisation", description="Traitement de canal", prix_base=Decimal("8000.00"), actif=True),
+            Service(nom="Prothèse dentaire", description="Prothèse amovible ou fixe", prix_base=Decimal("25000.00"), actif=True),
+        ]
+        db.add_all(services)
+        db.commit()
+        print(f"Created {len(services)} services")
+
+        # 3. Create patients
+        print("Creating patients...")
+        first_names = ["Ahmed", "Fatima", "Mohamed", "Amina", "Karim", "Salma", "Youssef", "Nour", "Ali", "Leila",
+                       "Omar", "Yasmine", "Hassan", "Malika", "Rachid", "Soraya", "Mehdi", "Karima", "Samir", "Nawal",
+                       "Tarek", "Hafsa", "Walid", "Dounia", "Nabil", "Samira", "Hamza", "Aicha", "Bilal", "Zineb"]
+        last_names = ["Benali", "Kaddour", "Mansouri", "Cherif", "Bouazza", "Taleb", "Meziane", "Hamdi", "Nasser", "Slimani",
+                      "Yacine", "Ferhat", "Mokrane", "Djebar", "Brahimi", "Zerrouki", "Benamara", "Hadj", "Lounis", "Saadi"]
+
+        patients = []
+        for i in range(30):
+            fname = random.choice(first_names)
+            lname = random.choice(last_names)
+            birth_year = random.randint(1950, 2005)
+            birth_month = random.randint(1, 12)
+            birth_day = random.randint(1, 28)
+
+            patient = Patient(
+                nom=lname,
+                prenom=fname,
+                phone=f"0{random.randint(500000000, 799999999)}",
+                email=f"{fname.lower()}.{lname.lower()}@email.dz" if random.random() > 0.3 else None,
+                date_naissance=date(birth_year, birth_month, birth_day),
+                notes="Patient régulier" if random.random() > 0.7 else None,
+                requires_validation=random.random() < 0.1  # 10% need validation
+            )
+            patients.append(patient)
+
+        db.add_all(patients)
+        db.commit()
+        print(f"Created {len(patients)} patients")
+
+        # 4. Create appointments (September 2025)
+        print("Creating appointments...")
+        appointments = []
+
+        # Define September 2025 dates
+        start_date = date(2025, 9, 1)
+        end_date = date(2025, 9, 30)
+
+        # Working hours: 9:00 to 17:00, every 30 minutes
+        time_slots = []
+        for hour in range(9, 17):
+            time_slots.append(time(hour, 0))
+            time_slots.append(time(hour, 30))
+
+        # Create appointments throughout September
+        for day in range((end_date - start_date).days + 1):
+            current_date = start_date + timedelta(days=day)
+
+            # Skip Fridays (day 4 = Friday in Python)
+            if current_date.weekday() == 4:
+                continue
+
+            # Random number of appointments per day (2-6)
+            num_appointments = random.randint(2, 6)
+
+            used_times = set()
+            for _ in range(num_appointments):
+                # Pick random time slot
+                time_slot = random.choice([t for t in time_slots if t not in used_times])
+                used_times.add(time_slot)
+
+                patient = random.choice(patients)
+                service = random.choice(services)
+
+                # Random state distribution
+                state_choice = random.random()
+                if current_date < date.today():
+                    # Past appointments - mostly validated, some cancelled
+                    etat = AppointmentState.valide if state_choice < 0.85 else AppointmentState.annule
+                elif current_date == date.today():
+                    # Today - mix of states
+                    if state_choice < 0.5:
+                        etat = AppointmentState.valide
+                    elif state_choice < 0.8:
+                        etat = AppointmentState.en_attente
+                    else:
+                        etat = AppointmentState.annule
+                else:
+                    # Future - mostly pending or validated
+                    etat = AppointmentState.en_attente if state_choice < 0.6 else AppointmentState.valide
+
+                # Price with some variation
+                prix = service.prix_base * Decimal(str(random.uniform(0.9, 1.1)))
+
+                # Verse (amount paid) - random percentage
+                if etat == AppointmentState.annule:
+                    verse = Decimal("0")
+                else:
+                    payment_ratio = random.choice([0, 0.3, 0.5, 0.7, 1.0])
+                    verse = (prix * Decimal(str(payment_ratio))).quantize(Decimal("0.01"))
+
+                reste = prix - verse
+
+                appointment = Appointment(
+                    patient_id=patient.id,
+                    service_id=service.id,
+                    date=current_date,
+                    heure=time_slot,
+                    prix=prix,
+                    verse=verse,
+                    reste=reste,
+                    etat=etat,
+                    notes="RDV urgent" if random.random() > 0.9 else None
+                )
+                appointments.append(appointment)
+
+        db.add_all(appointments)
+        db.commit()
+        print(f"Created {len(appointments)} appointments")
+
+        # 5. Create payments for appointments with verse > 0
+        print("Creating payments...")
+        payments = []
+
+        for appt in appointments:
+            if appt.verse > 0:
+                # Create 1-3 payment records that sum to verse
+                num_payments = random.randint(1, min(3, int(appt.verse / 1000) + 1))
+                remaining = appt.verse
+
+                for i in range(num_payments):
+                    if i == num_payments - 1:
+                        # Last payment gets the remaining amount
+                        montant = remaining
+                    else:
+                        # Random portion of remaining
+                        montant = (remaining * Decimal(str(random.uniform(0.3, 0.7)))).quantize(Decimal("0.01"))
+                        remaining -= montant
+
+                    payment = Payment(
+                        appointment_id=appt.id,
+                        montant=montant,
+                        mode=random.choice(list(PaymentMode)),
+                        created_at=datetime.combine(appt.date, appt.heure) + timedelta(minutes=random.randint(0, 60))
+                    )
+                    payments.append(payment)
+
+        db.add_all(payments)
+        db.commit()
+        print(f"Created {len(payments)} payments")
+
+        print("\n✅ Database seeding completed successfully!")
+        print(f"\nLogin credentials:")
+        print(f"  Admin: admin / admin123")
+        print(f"  Staff: staff1 / staff123")
+        print(f"  Staff: staff2 / staff123")
+
+    except Exception as e:
+        print(f"❌ Error during seeding: {e}")
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
+if __name__ == "__main__":
+    seed_database()
+

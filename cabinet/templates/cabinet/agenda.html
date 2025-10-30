@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block title %}Agenda{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4 text-gray-800">Agenda</h1>
+
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <div id="calendar"></div>
+
+            <div class="table-responsive mt-4">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Heure</th>
+                            <th>Client</th>
+                            <th>Type</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if rdvs and rdvs|length > 0 %}
+                            {% for rdv in rdvs %}
+                            <tr>
+                                <td>{{ rdv.date }}</td>
+                                <td>{{ rdv.heure }}</td>
+                                <td>{{ rdv.client.nom }} {{ rdv.client.prenom }}</td>
+                                <td>{{ rdv.type_rdv }}</td>
+                                <td>{{ rdv.statut }}</td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center">Aucun rendez-vous</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

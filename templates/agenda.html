@@ -1,0 +1,806 @@
+{% extends "base.html" %}
+
+{% block title %}Agenda - Gestion Clinique{% endblock %}
+
+{% block page_title %}Agenda{% endblock %}
+
+{% block extra_css %}
+<style>
+    #calendar {
+        max-width: 100%;
+        margin: 0 auto;
+    }
+
+    /* Enhanced FullCalendar styling */
+    .fc {
+        font-family: 'Poppins', sans-serif;
+    }
+
+    .fc .fc-toolbar-title {
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .fc-event {
+        border: none !important;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+        font-weight: 500;
+        font-size: 13px;
+        padding: 4px 8px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .fc-event:hover {
+        transform: scale(1.03);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+    }
+
+    .fc .fc-daygrid-day.fc-day-today {
+        background-color: rgba(37, 99, 235, 0.08) !important;
+    }
+
+    .fc .fc-daygrid-day-number {
+        font-weight: 600;
+        padding: 8px;
+    }
+
+    .fc .fc-col-header-cell {
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 12px;
+        letter-spacing: 0.5px;
+        padding: 14px 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid fade-in">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-1" style="font-weight: 700; font-size: 28px; color: var(--text-primary);">
+                <i class="bi bi-calendar3 me-2 text-primary"></i>
+                Agenda des Rendez-vous
+            </h1>
+            <p class="text-muted mb-0" style="font-size: 14px; font-weight: 500;">Gérez votre planning et vos rendez-vous</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#addEventModal">
+                <i class="bi bi-plus-circle"></i> Ajouter un RDV
+            </button>
+        </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="card mb-4" style="border: 1px solid rgba(226, 232, 240, 0.8);">
+        <div class="card-body py-3">
+            <div class="d-flex align-items-center gap-4 flex-wrap">
+                <span class="text-muted" style="font-weight: 600; font-size: 13px;">LÉGENDE:</span>
+                <div class="d-flex align-items-center gap-2">
+                    <div style="width: 16px; height: 16px; background: #ffc107; border-radius: 4px;"></div>
+                    <span style="font-size: 13px; font-weight: 500;">En Attente</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <div style="width: 16px; height: 16px; background: #28a745; border-radius: 4px;"></div>
+                    <span style="font-size: 13px; font-weight: 500;">Validé</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <div style="width: 16px; height: 16px; background: #dc3545; border-radius: 4px;"></div>
+                    <span style="font-size: 13px; font-weight: 500;">Annulé</span>
+                </div>
+                <div class="ms-auto text-muted" style="font-size: 12px; font-style: italic;">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Cliquez sur un rendez-vous pour voir les détails ou glissez pour déplacer
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Calendar Card -->
+    <div class="card" style="border: 1px solid rgba(226, 232, 240, 0.8);">
+        <div class="card-body p-4">
+            <!-- Loading indicator -->
+            <div id="calendarLoading" style="display: none; text-align: center; padding: 40px;">
+                <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                    <span class="visually-hidden">Chargement...</span>
+                </div>
+                <p class="mt-3 text-muted" style="font-weight: 600;">Chargement des rendez-vous...</p>
+            </div>
+
+            <!-- Calendar -->
+            <div id="calendar"></div>
+
+            <!-- Empty state message (initially hidden) -->
+            <div id="calendarEmpty" style="display: none; text-align: center; padding: 60px 20px;">
+                <i class="bi bi-calendar-x" style="font-size: 80px; color: var(--text-light); opacity: 0.4;"></i>
+                <h4 class="mt-4" style="color: var(--text-secondary); font-weight: 600;">Aucun rendez-vous ce mois-ci</h4>
+                <p class="text-muted" style="font-size: 14px;">Cliquez sur "Ajouter un RDV" pour commencer</p>
+                <button class="btn btn-primary mt-3" data-bs-toggle="modal" data-bs-target="#addEventModal">
+                    <i class="bi bi-plus-circle me-2"></i>Ajouter un RDV
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Event Modal -->
+<div class="modal fade" id="addEventModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-calendar-plus me-2"></i>
+                    Ajouter un Rendez-vous
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addEventForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">
+                                <i class="bi bi-person-fill me-1 text-primary"></i>
+                                Patient *
+                            </label>
+                            <select class="form-select" id="add_patient_id" name="patient_id" required>
+                                <option value="">Sélectionner un patient</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">
+                                <i class="bi bi-card-list me-1 text-primary"></i>
+                                Service *
+                            </label>
+                            <select class="form-select" id="add_service_id" name="service_id" required>
+                                <option value="">Sélectionner un service</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">
+                                <i class="bi bi-calendar-date me-1 text-primary"></i>
+                                Date *
+                            </label>
+                            <input type="date" class="form-control" id="add_date" name="date" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">
+                                <i class="bi bi-clock me-1 text-primary"></i>
+                                Heure *
+                            </label>
+                            <input type="time" class="form-control" id="add_heure" name="heure" required>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">
+                                <i class="bi bi-cash me-1 text-primary"></i>
+                                Prix *
+                            </label>
+                            <div class="input-group">
+                                <input type="number" step="0.01" class="form-control" id="add_prix" name="prix" required>
+                                <span class="input-group-text">TND</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">
+                                <i class="bi bi-wallet2 me-1 text-success"></i>
+                                Versé
+                            </label>
+                            <div class="input-group">
+                                <input type="number" step="0.01" class="form-control" id="add_verse" name="verse" value="0">
+                                <span class="input-group-text">TND</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <i class="bi bi-check-circle me-1 text-primary"></i>
+                            État
+                        </label>
+                        <select class="form-select" id="add_etat" name="etat">
+                            <option value="en_attente">En attente</option>
+                            <option value="valide">Validé</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <i class="bi bi-pencil-square me-1 text-primary"></i>
+                            Notes
+                        </label>
+                        <textarea class="form-control" id="add_notes" name="notes" rows="3" placeholder="Notes supplémentaires..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-1"></i>
+                    Annuler
+                </button>
+                <button type="button" class="btn btn-primary" onclick="submitNewEvent()">
+                    <i class="bi bi-check-circle me-1"></i>
+                    Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Event Details Modal -->
+<div class="modal fade" id="eventModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Détails du rendez-vous</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="eventDetails"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" id="deleteEventBtn">
+                    <i class="bi bi-trash"></i> Supprimer
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                <button type="button" class="btn btn-primary" id="editEventBtn">
+                    <i class="bi bi-pencil"></i> Modifier
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Event Modal -->
+<div class="modal fade" id="editEventModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Modifier le rendez-vous</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editEventForm">
+                    <input type="hidden" id="edit_event_id">
+                    <div class="mb-3">
+                        <strong>Patient:</strong> <span id="edit_patient_name"></span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Service:</strong> <span id="edit_service_name"></span>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Date *</label>
+                            <input type="date" class="form-control" id="edit_date" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Heure *</label>
+                            <input type="time" class="form-control" id="edit_heure" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Prix *</label>
+                        <input type="number" step="0.01" class="form-control" id="edit_prix" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">État</label>
+                        <select class="form-select" id="edit_etat">
+                            <option value="en_attente">En attente</option>
+                            <option value="valide">Validé</option>
+                            <option value="annule">Annulé</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" id="edit_notes" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="updateEvent()">Mettre à jour</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let calendar;
+    let currentEventId = null;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load patients and services for the add form
+        loadPatientsAndServices();
+
+        const calendarEl = document.getElementById('calendar');
+
+        calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            locale: 'fr',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            },
+            buttonText: {
+                today: 'Aujourd\'hui',
+                month: 'Mois',
+                week: 'Semaine',
+                day: 'Jour'
+            },
+            events: function(info, successCallback, failureCallback) {
+                console.log('[CALENDAR] Loading events for:', info.startStr, 'to', info.endStr);
+
+                const url = `/api/agenda?start=${encodeURIComponent(info.startStr)}&end=${encodeURIComponent(info.endStr)}`;
+                console.log('[CALENDAR] Fetching from URL:', url);
+
+                fetch(url)
+                    .then(response => {
+                        console.log('[CALENDAR] Response status:', response.status);
+                        console.log('[CALENDAR] Response headers:', {
+                            'content-type': response.headers.get('content-type'),
+                            'content-length': response.headers.get('content-length')
+                        });
+
+                        if (!response.ok) {
+                            return response.text().then(text => {
+                                console.error('[CALENDAR] Error response body:', text);
+                                throw new Error(`HTTP ${response.status}: ${text.substring(0, 200)}`);
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('[CALENDAR] ✅ Loaded', data.length, 'events');
+                        if (data.length > 0) {
+                            console.log('[CALENDAR] First event sample:', data[0]);
+                        } else {
+                            console.log('[CALENDAR] No events found for this period');
+                        }
+                        successCallback(data);
+                    })
+                    .catch(error => {
+                        console.error('[CALENDAR] ❌ Error loading events:', error);
+                        console.error('[CALENDAR] Error type:', error.constructor.name);
+                        console.error('[CALENDAR] Error message:', error.message);
+
+                        // Show user-friendly error message
+                        showToast('❌ Erreur lors du chargement des rendez-vous. Vérifiez la console (F12) pour plus de détails.', 'error');
+
+                        // Return empty array to prevent FullCalendar from crashing
+                        successCallback([]);
+                        failureCallback(error);
+                    });
+            },
+            eventClick: function(info) {
+                console.log('[CALENDAR] Event clicked:', info.event.id);
+                showEventDetails(info.event);
+            },
+            eventDrop: function(info) {
+                console.log('[CALENDAR] Event dropped:', info.event.id);
+                updateEventDateTime(info.event);
+            },
+            dateClick: function(info) {
+                console.log('[CALENDAR] Date clicked:', info.dateStr);
+                // Pre-fill the add form with clicked date
+                document.getElementById('add_date').value = info.dateStr;
+                new bootstrap.Modal(document.getElementById('addEventModal')).show();
+            },
+            editable: true,
+            eventResizableFromStart: false,
+            eventDurationEditable: false,
+            eventDidMount: function(info) {
+                // Add tooltip or additional styling
+                info.el.title = info.event.title;
+            },
+            loading: function(isLoading) {
+                console.log('[CALENDAR] Loading state:', isLoading);
+                const loadingEl = document.getElementById('calendarLoading');
+                const calendarEl = document.getElementById('calendar');
+
+                if (isLoading) {
+                    loadingEl.style.display = 'block';
+                    calendarEl.style.opacity = '0.5';
+                } else {
+                    loadingEl.style.display = 'none';
+                    calendarEl.style.opacity = '1';
+                }
+            },
+            // Set height to auto-adjust
+            height: 'auto',
+            contentHeight: 650
+        });
+
+        calendar.render();
+        console.log('[CALENDAR] Calendar rendered successfully');
+    });
+
+    function loadPatientsAndServices() {
+        // Load patients
+        fetch('/api/patients?limit=1000')
+            .then(r => r.json())
+            .then(patients => {
+                console.log('Loaded patients:', patients.length);
+                const select = document.getElementById('add_patient_id');
+                patients.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.textContent = `${p.prenom} ${p.nom}`;
+                    select.appendChild(opt);
+                });
+            })
+            .catch(err => {
+                console.error('Error loading patients:', err);
+                showToast('Erreur lors du chargement des clients', 'error');
+            });
+
+        // Load services - SIMPLIFIED VERSION
+        console.log('[AGENDA] Starting service load...');
+
+        fetch('/api/services', {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            console.log('[AGENDA] Response received:', {
+                status: response.status,
+                statusText: response.statusText,
+                ok: response.ok,
+                headers: response.headers.get('content-type')
+            });
+
+            if (!response.ok) {
+                return response.text().then(text => {
+                    console.error('[AGENDA] Error response body:', text);
+                    throw new Error(`HTTP ${response.status}: ${text.substring(0, 100)}`);
+                });
+            }
+
+            return response.json();
+        })
+        .then(services => {
+            console.log('[AGENDA] Parsed JSON successfully');
+            console.log('[AGENDA] Services data:', services);
+
+            if (!Array.isArray(services)) {
+                throw new Error('Services is not an array: ' + typeof services);
+            }
+
+            console.log('[AGENDA] Found', services.length, 'services');
+
+            const select = document.getElementById('add_service_id');
+            if (!select) {
+                throw new Error('Dropdown #add_service_id not found in DOM!');
+            }
+
+            console.log('[AGENDA] Dropdown found, adding options...');
+
+            // Clear existing options except the first one
+            while (select.options.length > 1) {
+                select.remove(1);
+            }
+
+            let added = 0;
+            services.forEach((service, idx) => {
+                try {
+                    const opt = document.createElement('option');
+                    opt.value = service.id;
+                    opt.textContent = service.nom + ' - ' + parseFloat(service.prix_base).toFixed(2) + ' TND';
+                    opt.setAttribute('data-prix', service.prix_base);
+                    select.appendChild(opt);
+                    added++;
+
+                    if (idx < 3) {
+                        console.log(`[AGENDA] Added service ${idx + 1}:`, service.nom, service.prix_base);
+                    }
+                } catch (e) {
+                    console.error(`[AGENDA] Failed to add service ${idx}:`, service, e);
+                }
+            });
+
+            console.log('[AGENDA] ✅ SUCCESS! Added', added, 'services to dropdown');
+
+            // Auto-fill prix when service is selected
+            select.addEventListener('change', function() {
+                const prix = this.options[this.selectedIndex].getAttribute('data-prix');
+                if (prix) {
+                    document.getElementById('add_prix').value = prix;
+                }
+            });
+        })
+        .catch(error => {
+            console.error('[AGENDA] ❌ CATCH ERROR:', error);
+            console.error('[AGENDA] Error type:', error.constructor.name);
+            console.error('[AGENDA] Error message:', error.message);
+            if (error.stack) {
+                console.error('[AGENDA] Stack trace:', error.stack);
+            }
+            showToast('Erreur lors du chargement des services: ' + error.message, 'error');
+        });
+    }
+
+    function submitNewEvent() {
+        const form = document.getElementById('addEventForm');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        // Validate required fields
+        if (!data.patient_id || !data.service_id || !data.date || !data.heure || !data.prix) {
+            showToast('❌ Veuillez remplir tous les champs obligatoires', 'error');
+            return;
+        }
+
+        console.log('[SUBMIT] Sending new appointment:', data);
+
+        fetch('/api/rdv', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            console.log('[SUBMIT] Response status:', response.status);
+            if (!response.ok) {
+                return response.json().then(err => {
+                    console.error('[SUBMIT] Error response:', err);
+                    return Promise.reject(err);
+                });
+            }
+            return response.json();
+        })
+        .then((result) => {
+            console.log('[SUBMIT] Success! New appointment:', result);
+            showToast('✅ Rendez-vous ajouté avec succès', 'success');
+
+            // Hide modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addEventModal'));
+            modal.hide();
+
+            // Reset form
+            form.reset();
+
+            // Refresh calendar to show new event
+            console.log('[SUBMIT] Refreshing calendar...');
+            calendar.refetchEvents();
+
+            // Optional: Switch to the date of the new appointment
+            if (data.date) {
+                calendar.gotoDate(data.date);
+            }
+        })
+        .catch(error => {
+            console.error('[SUBMIT] Error:', error);
+            showToast('❌ ' + (error.detail || 'Erreur lors de l\'ajout du rendez-vous'), 'error');
+        });
+    }
+
+    function showEventDetails(event) {
+        currentEventId = event.id;
+        const props = event.extendedProps;
+
+        // Calculate badge color and icon
+        let badgeClass = 'bg-warning';
+        let badgeIcon = 'clock-fill';
+        let badgeText = 'En attente';
+
+        if (props.etat === 'valide') {
+            badgeClass = 'bg-success';
+            badgeIcon = 'check-circle-fill';
+            badgeText = 'Validé';
+        } else if (props.etat === 'annule') {
+            badgeClass = 'bg-danger';
+            badgeIcon = 'x-circle-fill';
+            badgeText = 'Annulé';
+        }
+
+        const detailsHTML = `
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="p-3" style="background: rgba(37, 99, 235, 0.08); border-radius: 12px; border-left: 4px solid #2563eb;">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <i class="bi bi-person-fill text-primary" style="font-size: 20px;"></i>
+                            <strong style="font-size: 13px; color: var(--text-secondary); text-transform: uppercase;">Patient</strong>
+                        </div>
+                        <div style="font-size: 18px; font-weight: 700; color: var(--text-primary);">${props.patientName}</div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-3" style="background: rgba(16, 185, 129, 0.08); border-radius: 12px; border-left: 4px solid #10b981;">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <i class="bi bi-card-list text-success" style="font-size: 20px;"></i>
+                            <strong style="font-size: 13px; color: var(--text-secondary); text-transform: uppercase;">Service</strong>
+                        </div>
+                        <div style="font-size: 18px; font-weight: 700; color: var(--text-primary);">${props.serviceName}</div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-3" style="background: rgba(245, 158, 11, 0.08); border-radius: 12px;">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <i class="bi bi-calendar-date text-warning" style="font-size: 20px;"></i>
+                            <strong style="font-size: 13px; color: var(--text-secondary);">Date</strong>
+                        </div>
+                        <div style="font-size: 16px; font-weight: 600; color: var(--text-primary);">${new Date(event.start).toLocaleDateString('fr-FR', {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'})}</div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-3" style="background: rgba(245, 158, 11, 0.08); border-radius: 12px;">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <i class="bi bi-clock text-warning" style="font-size: 20px;"></i>
+                            <strong style="font-size: 13px; color: var(--text-secondary);">Heure</strong>
+                        </div>
+                        <div style="font-size: 16px; font-weight: 600; color: var(--text-primary);">${new Date(event.start).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}</div>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="p-3" style="background: rgba(100, 116, 139, 0.08); border-radius: 12px;">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-${badgeIcon}" style="font-size: 20px;"></i>
+                                <strong style="font-size: 13px; color: var(--text-secondary);">État du RDV</strong>
+                            </div>
+                            <span class="badge ${badgeClass}" style="font-size: 13px; padding: 8px 16px;">
+                                <i class="bi bi-${badgeIcon} me-1"></i>${badgeText}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 p-4" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(5, 150, 105, 0.08)); border-radius: 12px; border: 2px solid rgba(16, 185, 129, 0.2);">
+                <h6 class="mb-3" style="font-weight: 700; color: var(--text-primary);">
+                    <i class="bi bi-cash-stack me-2 text-success"></i>
+                    Informations de Paiement
+                </h6>
+                <div class="row g-3">
+                    <div class="col-4">
+                        <div class="text-center">
+                            <div style="font-size: 12px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; margin-bottom: 6px;">Prix Total</div>
+                            <div style="font-size: 24px; font-weight: 800; color: #2563eb;">${props.prix.toFixed(2)} TND</div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="text-center">
+                            <div style="font-size: 12px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; margin-bottom: 6px;">Versé</div>
+                            <div style="font-size: 24px; font-weight: 800; color: #10b981;">${props.verse.toFixed(2)} TND</div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="text-center">
+                            <div style="font-size: 12px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; margin-bottom: 6px;">Reste</div>
+                            <div style="font-size: 24px; font-weight: 800; color: #ef4444;">${props.reste.toFixed(2)} TND</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('eventDetails').innerHTML = detailsHTML;
+
+        // Wire up edit button
+        document.getElementById('editEventBtn').onclick = function() {
+            bootstrap.Modal.getInstance(document.getElementById('eventModal')).hide();
+            openEditModal(event);
+        };
+
+        // Wire up delete button
+        document.getElementById('deleteEventBtn').onclick = function() {
+            deleteEvent(event.id);
+        };
+
+        new bootstrap.Modal(document.getElementById('eventModal')).show();
+    }
+
+    function openEditModal(event) {
+        const props = event.extendedProps;
+
+        document.getElementById('edit_event_id').value = event.id;
+        document.getElementById('edit_patient_name').textContent = props.patientName;
+        document.getElementById('edit_service_name').textContent = props.serviceName;
+        document.getElementById('edit_date').value = event.start.toISOString().split('T')[0];
+        document.getElementById('edit_heure').value = event.start.toTimeString().slice(0, 5);
+        document.getElementById('edit_prix').value = props.prix;
+        document.getElementById('edit_etat').value = props.etat;
+        document.getElementById('edit_notes').value = ''; // Notes not in extendedProps by default
+
+        new bootstrap.Modal(document.getElementById('editEventModal')).show();
+    }
+
+    function updateEvent() {
+        const id = document.getElementById('edit_event_id').value;
+        const data = {
+            date: document.getElementById('edit_date').value,
+            heure: document.getElementById('edit_heure').value,
+            prix: parseFloat(document.getElementById('edit_prix').value),
+            etat: document.getElementById('edit_etat').value,
+            notes: document.getElementById('edit_notes').value
+        };
+
+        fetch(`/api/rdv/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => Promise.reject(err));
+            }
+            return response.json();
+        })
+        .then(() => {
+            showToast('Rendez-vous modifié avec succès', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('editEventModal')).hide();
+            calendar.refetchEvents();
+        })
+        .catch(error => {
+            showToast(error.detail || 'Erreur lors de la modification', 'error');
+        });
+    }
+
+    function deleteEvent(id) {
+        if (!confirm('Êtes-vous sûr de vouloir supprimer ce rendez-vous ?')) return;
+
+        fetch(`/api/rdv/${id}`, {
+            method: 'DELETE'
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => Promise.reject(err));
+            }
+            return response.json();
+        })
+        .then(() => {
+            showToast('Rendez-vous supprimé', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('eventModal')).hide();
+            calendar.refetchEvents();
+        })
+        .catch(error => {
+            showToast(error.detail || 'Erreur lors de la suppression', 'error');
+        });
+    }
+
+    function updateEventDateTime(event) {
+        const newDate = event.start.toISOString().split('T')[0];
+        const newTime = event.start.toTimeString().slice(0, 5);
+
+        fetch(`/api/rdv/${event.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                date: newDate,
+                heure: newTime
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => {
+                    showToast(err.detail || 'Erreur lors du déplacement', 'error');
+                    calendar.refetchEvents();
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data) {
+                showToast('Rendez-vous déplacé avec succès', 'success');
+            }
+        })
+        .catch(error => {
+            showToast('Erreur lors du déplacement', 'error');
+            calendar.refetchEvents();
+        });
+    }
+</script>
+{% endblock %}
+

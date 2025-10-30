@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_, extract
-from datetime import datetime, date
+from sqlalchemy import func, and_, text
+from datetime import date
 from decimal import Decimal
 from typing import Optional
 from models import Patient, Appointment, Payment, Service, AppointmentState
@@ -51,20 +51,22 @@ def get_dashboard_stats(db: Session, date_from: Optional[date] = None, date_to: 
         "Vendredi": 0, "Samedi": 0, "Dimanche": 0
     }
 
-    # Get appointments grouped by day of week
+    # Get appointments grouped by day of week (MySQL compatible)
+    # DAYOFWEEK returns 1=Sunday, 2=Monday, ..., 7=Saturday
     appointments_by_day = db.query(
-        extract('dow', Appointment.date).label('day_of_week'),
+        func.dayofweek(Appointment.date).label('day_of_week'),
         func.count(Appointment.id).label('count')
     ).filter(
         and_(
             Appointment.date >= date_from if date_from else True,
             Appointment.date <= date_to if date_to else True
         )
-    ).group_by('day_of_week').all()
+    ).group_by(func.dayofweek(Appointment.date)).all()
 
+    # MySQL DAYOFWEEK: 1=Sunday, 2=Monday, 3=Tuesday, ..., 7=Saturday
     day_mapping = {
-        1: "Lundi", 2: "Mardi", 3: "Mercredi", 4: "Jeudi",
-        5: "Vendredi", 6: "Samedi", 0: "Dimanche"
+        2: "Lundi", 3: "Mardi", 4: "Mercredi", 5: "Jeudi",
+        6: "Vendredi", 7: "Samedi", 1: "Dimanche"
     }
 
     for day_num, count in appointments_by_day:
@@ -95,4 +97,3 @@ def get_dashboard_stats(db: Session, date_from: Optional[date] = None, date_to: 
         "rdv_par_jour": rdv_par_jour,
         "top_services": top_services
     }
-

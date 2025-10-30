@@ -104,8 +104,7 @@ class AuditLog(Base):
     action = Column(String(100), nullable=False)
     target_table = Column(String(100), nullable=False)
     target_id = Column(Integer, nullable=True)
-    metadata = Column(JSON, nullable=True)
+    meta_data = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
     user = relationship("User", back_populates="audit_logs")
-

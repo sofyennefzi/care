@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 from datetime import datetime, date, time, timedelta
 from typing import Optional, List
 from decimal import Decimal
+from contextlib import asynccontextmanager
+import json
 
 import uvicorn
 from database import get_db, engine
@@ -15,10 +17,42 @@ import crud
 import auth
 from stats import get_dashboard_stats
 
-# Create tables
-Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Clinic Management System")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan event handler for startup and shutdown"""
+    # Startup
+    print("Starting up application...")
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("✓ Database tables created successfully")
+    except Exception as e:
+        print(f"⚠ Warning: Could not create database tables: {e}")
+        print("Make sure MySQL is running and database 'clinic_db' exists")
+        print("Check your .env file for correct database credentials")
+
+    yield
+
+    # Shutdown
+    print("Shutting down application...")
+
+
+app = FastAPI(title="Clinic Management System", lifespan=lifespan)
+
+# Exception handler for authentication errors
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    # If it's a 401 error and the request is for an HTML page, redirect to login
+    if exc.status_code == 401:
+        # Check if the request accepts HTML (browser request)
+        accept = request.headers.get("accept", "")
+        if "text/html" in accept:
+            return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+    # For API requests or other errors, return JSON
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail}
+    )
 
 # Static files and templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -37,12 +71,13 @@ def format_time(value):
 
 def format_currency(value):
     if value is None:
-        return "0 DA"
-    return f"{float(value):,.2f} DA"
+        return "0 TND"
+    return f"{float(value):,.2f} TND"
 
 templates.env.filters["format_date"] = format_date
 templates.env.filters["format_time"] = format_time
 templates.env.filters["format_currency"] = format_currency
+templates.env.filters["tojson"] = lambda v: json.dumps(v, ensure_ascii=False)
 
 
 # ============ Authentication Routes ============
@@ -83,15 +118,20 @@ async def logout():
 # ============ Dashboard ============
 
 @app.get("/", response_class=HTMLResponse)
-async def root():
-    return RedirectResponse(url="/dashboard")
+async def root(request: Request, db: Session = Depends(get_db)):
+    # Check if user is logged in
+    user = auth.get_current_user_from_cookie(request, db)
+    if user:
+        return RedirectResponse(url="/dashboard")
+    else:
+        return RedirectResponse(url="/login")
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(
     request: Request,
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(auth.require_login)
+    current_user = Depends(auth.require_login)
 ):
     stats = get_dashboard_stats(db)
     return templates.TemplateResponse(
@@ -107,13 +147,22 @@ async def clients_page(
     request: Request,
     search: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(auth.require_login)
+    current_user = Depends(auth.require_login)
 ):
     patients = crud.get_patients(db, search=search)
-    return templates.TemplateResponse(
-        "clients.html",
-        {"request": request, "user": current_user, "patients": patients, "search": search or ""}
-    )
+    try:
+        return templates.TemplateResponse(
+            "clients.html",
+            {"request": request, "user": current_user, "patients": patients, "search": search or ""}
+        )
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        # Fallback: show a minimal HTML error to identify the root cause quickly
+        return HTMLResponse(
+            content=f"<h3>Erreur d'affichage /clients</h3><pre>{str(e)}</pre>",
+            status_code=500
+        )
 
 
 # ============ RDV Aujourd'hui ============
@@ -122,7 +171,7 @@ async def clients_page(
 async def today_page(
     request: Request,
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(auth.require_login)
+    current_user = Depends(auth.require_login)
 ):
     appointments = crud.get_today_appointments(db)
     return templates.TemplateResponse(
@@ -138,7 +187,7 @@ async def rdv_page(
     request: Request,
     search: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(auth.require_login)
+    current_user = Depends(auth.require_login)
 ):
     appointments = crud.get_appointments(db, search=search)
     patients = crud.get_patients(db, limit=1000)
@@ -162,7 +211,7 @@ async def rdv_page(
 async def agenda_page(
     request: Request,
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(auth.require_login)
+    current_user = Depends(auth.require_login)
 ):
     return templates.TemplateResponse(
         "agenda.html",
@@ -176,7 +225,7 @@ async def agenda_page(
 async def valider_clients_page(
     request: Request,
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(auth.require_login)
+    current_user = Depends(auth.require_login)
 ):
     patients = crud.get_patients_requiring_validation(db)
     return templates.TemplateResponse(
@@ -191,7 +240,7 @@ async def valider_clients_page(
 async def en_attente_page(
     request: Request,
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(auth.require_login)
+    current_user = Depends(auth.require_login)
 ):
     appointments = crud.get_appointments(db, etat=AppointmentState.en_attente)
     return templates.TemplateResponse(
@@ -206,7 +255,7 @@ async def en_attente_page(
 async def paiements_page(
     request: Request,
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(auth.require_login)
+    current_user = Depends(auth.require_login)
 ):
     # Get all appointments with outstanding balances or payments
     appointments = crud.get_appointments(db, limit=1000)
@@ -223,6 +272,27 @@ async def paiements_page(
     )
 
 
+# ============ Services ============
+
+@app.get("/test-services-direct", response_class=HTMLResponse)
+async def test_services_direct(request: Request):
+    """Direct test page for services API - no auth required for debugging"""
+    return templates.TemplateResponse("test_services_direct.html", {"request": request})
+
+
+@app.get("/services", response_class=HTMLResponse)
+async def services_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user = Depends(auth.require_login)
+):
+    services = crud.get_services(db, active_only=False)
+    return templates.TemplateResponse(
+        "services.html",
+        {"request": request, "user": current_user, "services": services}
+    )
+
+
 # ============ API Routes ============
 
 # Stats API
@@ -231,7 +301,7 @@ async def api_stats_overview(
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(auth.require_login)
+    current_user = Depends(auth.require_login)
 ):
     stats = get_dashboard_stats(db, date_from, date_to)
     return stats
@@ -244,7 +314,7 @@ async def api_get_patients(
     limit: int = 100,
     search: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(auth.require_login)
+    current_user = Depends(auth.require_login)
 ):
     patients = crud.get_patients(db, skip=skip, limit=limit, search=search)
     return patients
@@ -254,7 +324,7 @@ async def api_get_patients(
 async def api_create_patient(
     patient: schemas.PatientCreate,
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(auth.require_login)
+    current_user = Depends(auth.require_login)
 ):
     return crud.create_patient(db, patient, current_user.id)
 
@@ -263,7 +333,7 @@ async def api_create_patient(
 async def api_get_patient(
     patient_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(auth.require_login)
+    current_user = Depends(auth.require_login)
 ):
     patient = crud.get_patient(db, patient_id)
     if not patient:
@@ -276,7 +346,7 @@ async def api_update_patient(
     patient_id: int,
     patient: schemas.PatientUpdate,
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(auth.require_login)
+    current_user = Depends(auth.require_login)
 ):
     updated_patient = crud.update_patient(db, patient_id, patient, current_user.id)
     if not updated_patient:
@@ -288,7 +358,7 @@ async def api_update_patient(
 async def api_delete_patient(
     patient_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(auth.require_admin)
+    current_user = Depends(auth.require_admin)
 ):
     success = crud.delete_patient(db, patient_id, current_user.id)
     if not success:
@@ -300,9 +370,71 @@ async def api_delete_patient(
 @app.get("/api/services", response_model=List[schemas.ServiceResponse])
 async def api_get_services(
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(auth.require_login)
+    current_user = Depends(auth.require_login)
 ):
-    return crud.get_services(db)
+    try:
+        print(f"[DEBUG] Getting services for user: {current_user.username}")
+        services = crud.get_services(db, active_only=True)
+        print(f"[DEBUG] Found {len(services)} services")
+        return services
+    except Exception as e:
+        print(f"[ERROR] Failed to get services: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Erreur serveur: {str(e)}")
+
+
+@app.get("/api/services/{service_id}", response_model=schemas.ServiceResponse)
+async def api_get_service(
+    service_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(auth.require_login)
+):
+    service = crud.get_service(db, service_id)
+    if not service:
+        raise HTTPException(status_code=404, detail="Service introuvable")
+    return service
+
+
+@app.post("/api/services", response_model=schemas.ServiceResponse)
+async def api_create_service(
+    service: schemas.ServiceCreate,
+    db: Session = Depends(get_db),
+    current_user = Depends(auth.require_login)
+):
+    return crud.create_service(db, service, current_user.id)
+
+
+@app.patch("/api/services/{service_id}", response_model=schemas.ServiceResponse)
+async def api_update_service(
+    service_id: int,
+    service: schemas.ServiceUpdate,
+    db: Session = Depends(get_db),
+    current_user = Depends(auth.require_login)
+):
+    updated_service = crud.update_service(db, service_id, service, current_user.id)
+    if not updated_service:
+        raise HTTPException(status_code=404, detail="Service introuvable")
+    return updated_service
+
+
+@app.delete("/api/services/{service_id}")
+async def api_delete_service(
+    service_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(auth.require_admin)
+):
+    success = crud.delete_service(db, service_id, current_user.id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Service introuvable")
+    return {"message": "Service supprimé"}
+
+
+    success = crud.delete_patient(db, patient_id, current_user.id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Patient introuvable")
+    return {"message": "Patient supprimé"}
+
 
 
 # Appointment API
@@ -316,7 +448,7 @@ async def api_get_appointments(
     date_to: Optional[date] = None,
     patient_id: Optional[int] = None,
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(auth.require_login)
+    current_user = Depends(auth.require_login)
 ):
     appointments = crud.get_appointments(
         db, skip=skip, limit=limit, search=search,
@@ -329,7 +461,7 @@ async def api_get_appointments(
 async def api_create_appointment(
     appointment: schemas.AppointmentCreate,
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(auth.require_login)
+    current_user = Depends(auth.require_login)
 ):
     try:
         return crud.create_appointment(db, appointment, current_user.id)
@@ -341,7 +473,7 @@ async def api_create_appointment(
 async def api_get_appointment(
     appointment_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(auth.require_login)
+    current_user = Depends(auth.require_login)
 ):
     appointment = crud.get_appointment(db, appointment_id)
     if not appointment:
@@ -354,7 +486,7 @@ async def api_update_appointment(
     appointment_id: int,
     appointment: schemas.AppointmentUpdate,
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(auth.require_login)
+    current_user = Depends(auth.require_login)
 ):
     try:
         updated = crud.update_appointment(db, appointment_id, appointment, current_user.id)
@@ -369,7 +501,7 @@ async def api_update_appointment(
 async def api_delete_appointment(
     appointment_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(auth.require_admin)
+    current_user = Depends(auth.require_admin)
 ):
     success = crud.delete_appointment(db, appointment_id, current_user.id)
     if not success:
@@ -382,7 +514,7 @@ async def api_delete_appointment(
 async def api_get_payments(
     appointment_id: int,
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(auth.require_login)
+    current_user = Depends(auth.require_login)
 ):
     return crud.get_payments_for_appointment(db, appointment_id)
 
@@ -392,7 +524,7 @@ async def api_create_payment(
     appointment_id: int,
     payment: schemas.PaymentCreate,
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(auth.require_login)
+    current_user = Depends(auth.require_login)
 ):
     if payment.appointment_id != appointment_id:
         raise HTTPException(status_code=400, detail="ID de rendez-vous non concordant")
@@ -408,61 +540,77 @@ async def api_agenda(
     start: str,
     end: str,
     db: Session = Depends(get_db),
-    current_user: schemas.UserResponse = Depends(auth.require_login)
+    current_user = Depends(auth.require_login)
 ):
-    start_date = datetime.fromisoformat(start.replace('Z', '+00:00')).date()
-    end_date = datetime.fromisoformat(end.replace('Z', '+00:00')).date()
+    try:
+        # More flexible date parsing
+        # Remove 'Z' and handle various formats
+        start_clean = start.replace('Z', '').replace('+00:00', '')
+        end_clean = end.replace('Z', '').replace('+00:00', '')
 
-    appointments = crud.get_appointments(db, date_from=start_date, date_to=end_date, limit=1000)
+        # Try to parse with time, if that fails, just use the date part
+        try:
+            start_date = datetime.fromisoformat(start_clean).date()
+        except ValueError:
+            # If full datetime parsing fails, try just the date part
+            start_date = datetime.strptime(start_clean.split('T')[0], '%Y-%m-%d').date()
 
-    events = []
-    for appt in appointments:
-        # Combine date and time for start
-        start_datetime = datetime.combine(appt.date, appt.heure)
-        # Assume 30min duration
-        end_datetime = start_datetime + timedelta(minutes=30)
+        try:
+            end_date = datetime.fromisoformat(end_clean).date()
+        except ValueError:
+            end_date = datetime.strptime(end_clean.split('T')[0], '%Y-%m-%d').date()
 
-        # Color based on state
-        color_map = {
-            "en_attente": "#ffc107",  # warning/yellow
-            "valide": "#28a745",      # success/green
-            "annule": "#dc3545"       # danger/red
-        }
+        print(f"[API AGENDA] Loading appointments from {start_date} to {end_date}")
 
-        events.append({
-            "id": appt.id,
-            "title": f"{appt.patient.prenom} {appt.patient.nom} - {appt.service.nom}",
-            "start": start_datetime.isoformat(),
-            "end": end_datetime.isoformat(),
-            "backgroundColor": color_map.get(appt.etat.value, "#6c757d"),
-            "borderColor": color_map.get(appt.etat.value, "#6c757d"),
-            "extendedProps": {
-                "patientId": appt.patient_id,
-                "patientName": f"{appt.patient.prenom} {appt.patient.nom}",
-                "serviceName": appt.service.nom,
-                "etat": appt.etat.value,
-                "prix": float(appt.prix),
-                "verse": float(appt.verse),
-                "reste": float(appt.reste)
-            }
-        })
+        appointments = crud.get_appointments(db, date_from=start_date, date_to=end_date, limit=1000)
 
-    return events
+        print(f"[API AGENDA] Found {len(appointments)} appointments")
+
+        events = []
+        for appt in appointments:
+            try:
+                # Combine date and time for start
+                start_datetime = datetime.combine(appt.date, appt.heure)
+                # Assume 30min duration
+                end_datetime = start_datetime + timedelta(minutes=30)
+
+                # Color based on state
+                color_map = {
+                    "en_attente": "#ffc107",  # warning/yellow
+                    "valide": "#28a745",      # success/green
+                    "annule": "#dc3545"       # danger/red
+                }
+
+                events.append({
+                    "id": appt.id,
+                    "title": f"{appt.patient.prenom} {appt.patient.nom} - {appt.service.nom}",
+                    "start": start_datetime.isoformat(),
+                    "end": end_datetime.isoformat(),
+                    "backgroundColor": color_map.get(appt.etat.value, "#6c757d"),
+                    "borderColor": color_map.get(appt.etat.value, "#6c757d"),
+                    "extendedProps": {
+                        "patientId": appt.patient_id,
+                        "patientName": f"{appt.patient.prenom} {appt.patient.nom}",
+                        "serviceName": appt.service.nom,
+                        "etat": appt.etat.value,
+                        "prix": float(appt.prix),
+                        "verse": float(appt.verse),
+                        "reste": float(appt.reste)
+                    }
+                })
+            except Exception as e:
+                print(f"[API AGENDA] Error processing appointment {appt.id}: {e}")
+                continue
+
+        print(f"[API AGENDA] Returning {len(events)} events")
+        return events
+
+    except Exception as e:
+        print(f"[API AGENDA] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Erreur lors du chargement des rendez-vous: {str(e)}")
 
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
-fastapi==0.109.0
-uvicorn[standard]==0.27.0
-sqlalchemy==2.0.25
-alembic==1.13.1
-pymysql==1.1.0
-cryptography==42.0.0
-python-multipart==0.0.6
-jinja2==3.1.3
-passlib[bcrypt]==1.7.4
-python-jose[cryptography]==3.3.0
-python-dateutil==2.8.2
-pydantic==2.5.3
-pydantic-settings==2.1.0
-

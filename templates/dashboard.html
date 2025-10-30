@@ -1,243 +1,355 @@
 {% extends "base.html" %}
+{% block title %}Tableau de bord{% endblock %}
+{% block page_title %}Tableau de bord{% endblock %}
 
-{% block title %}Dashboard - Gestion Clinique{% endblock %}
+{% block extra_css %}
+<style>
+  .card-patients {
+    background-color: #f8fafc;
+    border-left: 4px solid #3b82f6;
+    border-radius: 8px;
+  }
+
+  .card-passes {
+    background-color: #f0fdf4;
+    border-left: 4px solid #22c55e;
+    border-radius: 8px;
+  }
+
+  .card-futurs {
+    background-color: #fefce8;
+    border-left: 4px solid #eab308;
+    border-radius: 8px;
+  }
+
+  .card-caisse {
+    background-color: #f3e8ff;
+    border-left: 4px solid #8b5cf6;
+    border-radius: 8px;
+  }
+
+  .revenue-card {
+    background-color: #ecfdf5;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+  }
+
+  .status-card {
+    background-color: #fef3c7;
+    border: 1px solid #fed7aa;
+    border-radius: 8px;
+  }
+
+  .chart-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .chart-header-blue {
+    background-color: #dbeafe;
+    border-bottom: 1px solid #93c5fd;
+    color: #1e40af;
+  }
+
+  .chart-header-green {
+    background-color: #dcfce7;
+    border-bottom: 1px solid #86efac;
+    color: #15803d;
+  }
+
+  .page-header {
+    background-color: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
-    <h1 class="mb-4">Dashboard</h1>
+  <!-- Simple Page Header -->
+  <div class="page-header">
+    <h1 class="mb-2 text-slate-700">
+      <i class="bi bi-speedometer2 me-2 text-blue-600"></i>
+      Tableau de Bord
+    </h1>
+    <p class="mb-0 text-muted">
+      {{ "now"|format_date }} • Vue d'ensemble de votre clinique
+    </p>
+  </div>
 
-    <!-- Stats Cards -->
-    <div class="row mb-4">
-        <div class="col-md-3 mb-3">
-            <div class="card stat-card bg-primary text-white">
-                <div class="card-body">
-                    <h3>{{ stats.total_patients }}</h3>
-                    <p>Patients</p>
-                    <i class="bi bi-people position-absolute" style="font-size: 3rem; opacity: 0.3; right: 20px; top: 20px;"></i>
-                </div>
-            </div>
+  <!-- Simple KPI Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="card card-patients">
+        <div class="card-body text-center py-3">
+          <i class="bi bi-people-fill text-blue-600 mb-2" style="font-size: 2rem;"></i>
+          <h3 class="mb-1 text-blue-800">{{ stats.total_patients }}</h3>
+          <div class="text-blue-700">Patients</div>
         </div>
-        <div class="col-md-3 mb-3">
-            <div class="card stat-card bg-success text-white">
-                <div class="card-body">
-                    <h3>{{ stats.total_rdv }}</h3>
-                    <p>RDV total</p>
-                    <i class="bi bi-calendar-check position-absolute" style="font-size: 3rem; opacity: 0.3; right: 20px; top: 20px;"></i>
-                </div>
-            </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card card-passes">
+        <div class="card-body text-center py-3">
+          <i class="bi bi-calendar-check-fill text-green-600 mb-2" style="font-size: 2rem;"></i>
+          <h3 class="mb-1 text-green-800">{{ stats.rdv_passes }}</h3>
+          <div class="text-green-700">RDV Passés</div>
         </div>
-        <div class="col-md-3 mb-3">
-            <div class="card stat-card bg-info text-white">
-                <div class="card-body">
-                    <h3>{{ stats.rdv_passes }}</h3>
-                    <p>RDV passés</p>
-                    <i class="bi bi-calendar-x position-absolute" style="font-size: 3rem; opacity: 0.3; right: 20px; top: 20px;"></i>
-                </div>
-            </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card card-futurs">
+        <div class="card-body text-center py-3">
+          <i class="bi bi-calendar-plus-fill text-yellow-600 mb-2" style="font-size: 2rem;"></i>
+          <h3 class="mb-1 text-yellow-800">{{ stats.rdv_futurs }}</h3>
+          <div class="text-yellow-700">RDV Futurs</div>
         </div>
-        <div class="col-md-3 mb-3">
-            <div class="card stat-card bg-warning text-white">
-                <div class="card-body">
-                    <h3>{{ stats.rdv_futurs }}</h3>
-                    <p>RDV futurs</p>
-                    <i class="bi bi-calendar-plus position-absolute" style="font-size: 3rem; opacity: 0.3; right: 20px; top: 20px;"></i>
-                </div>
-            </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card card-caisse">
+        <div class="card-body text-center py-3">
+          <i class="bi bi-wallet2 text-purple-600 mb-2" style="font-size: 2rem;"></i>
+          <h3 class="mb-1 text-purple-800">{{ stats.caisse_jour | format_currency }}</h3>
+          <div class="text-purple-700">Caisse du Jour</div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Simple Revenue Summary -->
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-md-8">
+      <div class="card revenue-card">
+        <div class="card-body">
+          <div class="d-flex align-items-center">
+            <i class="bi bi-cash-stack text-green-600 me-3" style="font-size: 2.5rem;"></i>
+            <div>
+              <h6 class="mb-1 text-green-700">Revenu Total Encaissé</h6>
+              <h2 class="mb-0 text-green-800">{{ stats.revenu_total | format_currency }}</h2>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-4">
+      <div class="card status-card">
+        <div class="card-body">
+          <h6 class="mb-3 text-amber-700">État des RDV</h6>
+          <div class="mb-2">
+            <span class="badge bg-success me-2">Validés</span>
+            <strong>{{ stats.repartition_etat.valide }}</strong>
+          </div>
+          <div class="mb-2">
+            <span class="badge bg-warning me-2">En attente</span>
+            <strong>{{ stats.repartition_etat.en_attente }}</strong>
+          </div>
+          <div>
+            <span class="badge bg-danger me-2">Annulés</span>
+            <strong>{{ stats.repartition_etat.annule }}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Simple Analytics Charts -->
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-xl-8">
+      <div class="card chart-card">
+        <div class="card-header chart-header-blue">
+          <h5 class="mb-0">
+            <i class="bi bi-bar-chart-fill me-2"></i>
+            RDV par jour de la semaine
+          </h5>
+        </div>
+        <div class="card-body">
+          <div style="position:relative;height:400px;">
+            <canvas id="rdvParJourChart"></canvas>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- Revenue Cards -->
-    <div class="row mb-4">
-        <div class="col-md-6 mb-3">
-            <div class="card stat-card">
-                <div class="card-body">
-                    <h5 class="card-title">Revenu total encaissé</h5>
-                    <h2 class="text-success">{{ stats.revenu_total | format_currency }}</h2>
-                </div>
-            </div>
+    <div class="col-12 col-xl-4">
+      <div class="card chart-card">
+        <div class="card-header chart-header-green">
+          <h5 class="mb-0">
+            <i class="bi bi-pie-chart-fill me-2"></i>
+            Top 5 services populaires
+          </h5>
         </div>
-        <div class="col-md-6 mb-3">
-            <div class="card stat-card">
-                <div class="card-body">
-                    <h5 class="card-title">Caisse du jour</h5>
-                    <h2 class="text-primary">{{ stats.caisse_jour | format_currency }}</h2>
-                </div>
-            </div>
+        <div class="card-body">
+          <div style="position:relative;height:400px;">
+            <canvas id="topServicesChart"></canvas>
+          </div>
         </div>
+      </div>
     </div>
-
-    <!-- State Distribution -->
-    <div class="row mb-4">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Répartition par état</h5>
-                    <div class="row text-center mt-3">
-                        <div class="col-md-4">
-                            <span class="badge bg-danger" style="font-size: 1.2rem; padding: 10px 20px;">
-                                Annulé: {{ stats.repartition_etat.annule }}
-                            </span>
-                        </div>
-                        <div class="col-md-4">
-                            <span class="badge bg-warning" style="font-size: 1.2rem; padding: 10px 20px;">
-                                En attente: {{ stats.repartition_etat.en_attente }}
-                            </span>
-                        </div>
-                        <div class="col-md-4">
-                            <span class="badge bg-success" style="font-size: 1.2rem; padding: 10px 20px;">
-                                Validé: {{ stats.repartition_etat.valide }}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Charts -->
-    <div class="row">
-        <div class="col-md-7 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">RDV par jour</h5>
-                    <canvas id="rdvParJourChart"></canvas>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-5 mb-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Top 5 services</h5>
-                    <canvas id="topServicesChart"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
+  </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    // RDV par jour - Bar Chart
-    const rdvParJourCtx = document.getElementById('rdvParJourChart').getContext('2d');
-    const rdvParJourData = {{ stats.rdv_par_jour | tojson }};
+  // Wait for DOM to be fully loaded
+  document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing charts...');
 
-    new Chart(rdvParJourCtx, {
-        type: 'bar',
-        data: {
-            labels: Object.keys(rdvParJourData),
+    Chart.defaults.font.family = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
+    Chart.defaults.color = '#6b7280';
+
+    // RDV par jour - Bar Chart with simple blue color
+    const rdvParJourCtx = document.getElementById('rdvParJourChart');
+    if (rdvParJourCtx) {
+      console.log('Found rdvParJourChart canvas element');
+
+      const rdvParJourData = {{ stats.rdv_par_jour | tojson | safe }};
+      console.log('RDV par jour data received:', rdvParJourData);
+
+      const labels = Object.keys(rdvParJourData);
+      const values = Object.values(rdvParJourData).map(v => Number(v) || 0);
+
+      console.log('Chart labels:', labels);
+      console.log('Chart values:', values);
+
+      try {
+        const chart = new Chart(rdvParJourCtx, {
+          type: 'bar',
+          data: {
+            labels: labels,
             datasets: [{
-                label: 'Nombre de RDV',
-                data: Object.values(rdvParJourData),
-                backgroundColor: 'rgba(78, 115, 223, 0.8)',
-                borderColor: 'rgba(78, 115, 223, 1)',
-                borderWidth: 1
+              label: 'Nombre de RDV',
+              data: values,
+              backgroundColor: '#3b82f6',
+              borderRadius: 4,
+              borderWidth: 0,
+              hoverBackgroundColor: '#2563eb'
             }]
-        },
-        options: {
+          },
+          options: {
             responsive: true,
-            maintainAspectRatio: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: 'rgba(59, 130, 246, 0.9)',
+                titleColor: '#fff',
+                bodyColor: '#fff',
+                cornerRadius: 6
+              }
+            },
             scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        stepSize: 1
-                    }
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  stepSize: 1,
+                  color: '#6b7280'
+                },
+                grid: {
+                  color: 'rgba(107, 114, 128, 0.1)',
+                  drawBorder: false
                 }
+              },
+              x: {
+                ticks: {
+                  color: '#6b7280'
+                },
+                grid: { display: false }
+              }
             }
-        }
-    });
+          }
+        });
+        console.log('✅ Bar chart created successfully');
+      } catch (error) {
+        console.error('❌ Error creating bar chart:', error);
+      }
+    } else {
+      console.error('❌ rdvParJourChart canvas element not found');
+    }
 
-    // Top Services - Donut Chart
-    const topServicesCtx = document.getElementById('topServicesChart').getContext('2d');
-    const topServices = {{ stats.top_services | tojson }};
+    // Top Services - Donut Chart with simple colors
+    const topServicesCtx = document.getElementById('topServicesChart');
+    if (topServicesCtx) {
+      console.log('Found topServicesChart canvas element');
 
-    new Chart(topServicesCtx, {
-        type: 'doughnut',
-        data: {
-            labels: topServices.map(s => s.nom),
-            datasets: [{
+      const topServices = {{ stats.top_services | tojson | safe }};
+      console.log('Top services data received:', topServices);
+
+      if (topServices && Array.isArray(topServices) && topServices.length > 0) {
+        try {
+          const chart = new Chart(topServicesCtx, {
+            type: 'doughnut',
+            data: {
+              labels: topServices.map(s => s.nom),
+              datasets: [{
                 data: topServices.map(s => s.count),
                 backgroundColor: [
-                    'rgba(78, 115, 223, 0.8)',
-                    'rgba(28, 200, 138, 0.8)',
-                    'rgba(246, 194, 62, 0.8)',
-                    'rgba(231, 74, 59, 0.8)',
-                    'rgba(133, 135, 150, 0.8)'
-                ]
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true
+                  '#3b82f6', // Blue
+                  '#22c55e', // Green
+                  '#eab308', // Yellow
+                  '#ef4444', // Red
+                  '#8b5cf6', // Purple
+                  '#06b6d4', // Cyan
+                  '#f97316'  // Orange
+                ],
+                borderWidth: 3,
+                borderColor: '#fff',
+                hoverOffset: 8
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  position: 'bottom',
+                  labels: {
+                    padding: 15,
+                    usePointStyle: true,
+                    font: { size: 12 },
+                    color: '#6b7280'
+                  }
+                },
+                tooltip: {
+                  backgroundColor: 'rgba(75, 85, 99, 0.9)',
+                  titleColor: '#fff',
+                  bodyColor: '#fff',
+                  cornerRadius: 6,
+                  callbacks: {
+                    label: function(context) {
+                      const label = context.label || '';
+                      const value = context.parsed || 0;
+                      const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                      const percentage = ((value / total) * 100).toFixed(1);
+                      return `${label}: ${value} RDV (${percentage}%)`;
+                    }
+                  }
+                }
+              }
+            }
+          });
+          console.log('✅ Donut chart created successfully');
+        } catch (error) {
+          console.error('❌ Error creating donut chart:', error);
         }
-    });
+      } else {
+        console.log('⚠️ No services data available, showing empty state');
+        topServicesCtx.parentElement.innerHTML = `
+          <div class="text-center py-5">
+            <i class="bi bi-pie-chart text-muted" style="font-size: 64px; opacity: 0.3;"></i>
+            <h5 class="text-muted mt-3">Aucun service utilisé</h5>
+            <p class="text-muted">Les services populaires apparaîtront ici</p>
+          </div>
+        `;
+      }
+    } else {
+      console.error('❌ topServicesChart canvas element not found');
+    }
+  });
 </script>
 {% endblock %}
-from logging.config import fileConfig
-
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-
-from alembic import context
-
-# Import your models
-import sys
-from pathlib import Path
-sys.path.append(str(Path(__file__).parent.parent))
-
-from database import Base
-from models import User, Patient, Service, Appointment, Payment, AuditLog
-from config import get_settings
-
-# this is the Alembic Config object
-config = context.config
-
-# Set sqlalchemy.url from settings
-settings = get_settings()
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
-
-# Interpret the config file for Python logging.
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
-
-# add your model's MetaData object here
-target_metadata = Base.metadata
-
-
-def run_migrations_offline() -> None:
-    """Run migrations in 'offline' mode."""
-    url = config.get_main_option("sqlalchemy.url")
-    context.configure(
-        url=url,
-        target_metadata=target_metadata,
-        literal_binds=True,
-        dialect_opts={"paramstyle": "named"},
-    )
-
-    with context.begin_transaction():
-        context.run_migrations()
-
-
-def run_migrations_online() -> None:
-    """Run migrations in 'online' mode."""
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
-
-    with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
-
-        with context.begin_transaction():
-            context.run_migrations()
-
-
-if context.is_offline_mode():
-    run_migrations_offline()
-else:
-    run_migrations_online()
-

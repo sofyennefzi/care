@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Services Load</title>
+</head>
+<body>
+    <h1>Testing Services API</h1>
+    <div id="result"></div>
+
+    <script>
+        fetch('/api/services')
+            .then(r => r.json())
+            .then(services => {
+                document.getElementById('result').innerHTML =
+                    '<h2>Success! Found ' + services.length + ' services:</h2>' +
+                    '<ul>' + services.map(s => '<li>' + s.nom + ' - ' + s.prix_base + ' TND</li>').join('') + '</ul>';
+            })
+            .catch(err => {
+                document.getElementById('result').innerHTML = '<h2 style="color:red">Error: ' + err + '</h2>';
+            });
+    </script>
+</body>
+</html>
+

@@ -4,6 +4,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from fastapi import Depends, HTTPException, status, Request
+from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordBearer
 from models import User, UserRole
 from database import get_db
@@ -90,4 +91,3 @@ def require_admin(current_user: User = Depends(require_login)) -> User:
             detail="Accès refusé: administrateur requis"
         )
     return current_user
-

@@ -145,7 +145,7 @@
     function addPayment(appointmentId, clientName, reste) {
         document.getElementById('payment_appointment_id').value = appointmentId;
         document.getElementById('payment_client_name').textContent = clientName;
-        document.getElementById('payment_reste').textContent = reste.toFixed(2) + ' DA';
+        document.getElementById('payment_reste').textContent = reste.toFixed(2) + ' TND';
         document.getElementById('payment_montant').value = reste.toFixed(2);
         document.getElementById('payment_montant').max = reste.toFixed(2);
 
@@ -202,7 +202,7 @@
                     const date = new Date(payment.created_at).toLocaleDateString('fr-FR');
                     html += `<tr>
                         <td>${date}</td>
-                        <td>${payment.montant.toFixed(2)} DA</td>
+                        <td>${payment.montant.toFixed(2)} TND</td>
                         <td><span class="badge bg-secondary">${payment.mode}</span></td>
                     </tr>`;
                 });
@@ -212,7 +212,7 @@
                 // Calculate total
                 const total = payments.reduce((sum, p) => sum + parseFloat(p.montant), 0);
                 html += `<div class="alert alert-success mt-3">
-                    <strong>Total versé:</strong> ${total.toFixed(2)} DA
+                    <strong>Total versé:</strong> ${total.toFixed(2)} TND
                 </div>`;
             }
 
@@ -225,160 +225,3 @@
     }
 </script>
 {% endblock %}
-{% extends "base.html" %}
-
-{% block title %}Agenda - Gestion Clinique{% endblock %}
-
-{% block extra_css %}
-<style>
-    #calendar {
-        max-width: 1200px;
-        margin: 0 auto;
-    }
-</style>
-{% endblock %}
-
-{% block content %}
-<div class="container-fluid">
-    <h1 class="mb-4">Agenda</h1>
-
-    <div class="card">
-        <div class="card-body">
-            <div id="calendar"></div>
-        </div>
-    </div>
-</div>
-
-<!-- Event Details Modal -->
-<div class="modal fade" id="eventModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Détails du rendez-vous</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div id="eventDetails"></div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
-                <button type="button" class="btn btn-primary" id="editEventBtn">Modifier</button>
-            </div>
-        </div>
-    </div>
-</div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const calendarEl = document.getElementById('calendar');
-
-        const calendar = new FullCalendar.Calendar(calendarEl, {
-            initialView: 'dayGridMonth',
-            locale: 'fr',
-            headerToolbar: {
-                left: 'prev,next today',
-                center: 'title',
-                right: 'dayGridMonth,timeGridWeek,timeGridDay'
-            },
-            buttonText: {
-                today: 'Aujourd\'hui',
-                month: 'Mois',
-                week: 'Semaine',
-                day: 'Jour'
-            },
-            events: function(info, successCallback, failureCallback) {
-                fetch(`/api/agenda?start=${info.startStr}&end=${info.endStr}`)
-                    .then(response => response.json())
-                    .then(data => successCallback(data))
-                    .catch(error => failureCallback(error));
-            },
-            eventClick: function(info) {
-                showEventDetails(info.event);
-            },
-            eventDrop: function(info) {
-                updateEventDateTime(info.event);
-            },
-            editable: true,
-            eventResizableFromStart: false,
-            eventDurationEditable: false
-        });
-
-        calendar.render();
-
-        function showEventDetails(event) {
-            const props = event.extendedProps;
-            const detailsHTML = `
-                <div class="mb-3">
-                    <strong>Patient:</strong> ${props.patientName}
-                </div>
-                <div class="mb-3">
-                    <strong>Service:</strong> ${props.serviceName}
-                </div>
-                <div class="mb-3">
-                    <strong>Date:</strong> ${new Date(event.start).toLocaleDateString('fr-FR')}
-                </div>
-                <div class="mb-3">
-                    <strong>Heure:</strong> ${new Date(event.start).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}
-                </div>
-                <div class="mb-3">
-                    <strong>État:</strong>
-                    ${props.etat === 'en_attente' ? '<span class="badge bg-warning">En attente</span>' :
-                      props.etat === 'valide' ? '<span class="badge bg-success">Validé</span>' :
-                      '<span class="badge bg-danger">Annulé</span>'}
-                </div>
-                <div class="mb-3">
-                    <strong>Prix:</strong> ${props.prix.toFixed(2)} DA
-                </div>
-                <div class="mb-3">
-                    <strong>Versé:</strong> ${props.verse.toFixed(2)} DA
-                </div>
-                <div class="mb-3">
-                    <strong>Reste:</strong> <span class="text-danger">${props.reste.toFixed(2)} DA</span>
-                </div>
-            `;
-
-            document.getElementById('eventDetails').innerHTML = detailsHTML;
-            document.getElementById('editEventBtn').onclick = function() {
-                window.location.href = `/rdv?highlight=${event.id}`;
-            };
-
-            new bootstrap.Modal(document.getElementById('eventModal')).show();
-        }
-
-        function updateEventDateTime(event) {
-            const newDate = event.start.toISOString().split('T')[0];
-            const newTime = event.start.toTimeString().slice(0, 5);
-
-            fetch(`/api/rdv/${event.id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    date: newDate,
-                    heure: newTime
-                })
-            })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(err => {
-                        showToast(err.detail || 'Erreur lors du déplacement', 'error');
-                        calendar.refetchEvents();
-                    });
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data) {
-                    showToast('Rendez-vous déplacé avec succès', 'success');
-                }
-            })
-            .catch(error => {
-                showToast('Erreur lors du déplacement', 'error');
-                calendar.refetchEvents();
-            });
-        }
-    });
-</script>
-{% endblock %}
-

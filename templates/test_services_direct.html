@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Services API Test Page</title>
+    <style>
+        body { font-family: Arial; padding: 20px; background: #f5f5f5; }
+        .box { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .success { color: green; }
+        .error { color: red; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 5px; }
+        pre { background: #f0f0f0; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        select { width: 100%; padding: 8px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Services API Direct Test</h1>
+
+    <div class="box">
+        <h2>Step 1: Test API</h2>
+        <button onclick="testAPI()">🔬 Test /api/services</button>
+        <div id="apiResult"></div>
+    </div>
+
+    <div class="box">
+        <h2>Step 2: Test Dropdown Population</h2>
+        <label>Service Dropdown:</label>
+        <select id="testDropdown">
+            <option value="">Sélectionner un service</option>
+        </select>
+        <br><br>
+        <button onclick="populateDropdown()">📋 Populate Dropdown</button>
+        <div id="dropdownResult"></div>
+    </div>
+
+    <div class="box">
+        <h2>Console Logs</h2>
+        <div id="console" style="font-family: monospace; font-size: 12px;"></div>
+    </div>
+
+    <script>
+        function log(msg, type = 'info') {
+            const now = new Date().toLocaleTimeString();
+            const color = type === 'error' ? 'red' : type === 'success' ? 'green' : 'black';
+            const line = `[${now}] ${msg}`;
+            console.log(line);
+            document.getElementById('console').innerHTML +=
+                `<div style="color: ${color}">${line}</div>`;
+        }
+
+        let servicesData = null;
+
+        function testAPI() {
+            log('Testing /api/services...');
+            document.getElementById('apiResult').innerHTML = '⏳ Loading...';
+
+            fetch('/api/services')
+                .then(response => {
+                    log(`Response status: ${response.status}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    servicesData = data;
+                    log(`✅ Received ${data.length} services`, 'success');
+
+                    let html = `<div class="success">
+                        <h3>✅ SUCCESS!</h3>
+                        <p>Found <strong>${data.length}</strong> services</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>`;
+                    document.getElementById('apiResult').innerHTML = html;
+                })
+                .catch(error => {
+                    log(`❌ Error: ${error.message}`, 'error');
+                    document.getElementById('apiResult').innerHTML =
+                        `<div class="error">❌ ERROR: ${error.message}</div>`;
+                });
+        }
+
+        function populateDropdown() {
+            if (!servicesData) {
+                alert('Please test API first!');
+                return;
+            }
+
+            log('Populating dropdown...');
+            const select = document.getElementById('testDropdown');
+
+            // Clear existing options except first
+            while (select.options.length > 1) {
+                select.remove(1);
+            }
+
+            let count = 0;
+            servicesData.forEach(service => {
+                const opt = document.createElement('option');
+                opt.value = service.id;
+                opt.textContent = `${service.nom} - ${service.prix_base} TND`;
+                select.appendChild(opt);
+                count++;
+            });
+
+            log(`✅ Added ${count} options to dropdown`, 'success');
+            document.getElementById('dropdownResult').innerHTML =
+                `<div class="success">✅ Added ${count} services to dropdown! Check the dropdown above.</div>`;
+        }
+
+        // Auto-test on load
+        window.onload = function() {
+            log('Page loaded');
+            log('Waiting 1 second, then auto-testing API...');
+            setTimeout(() => {
+                testAPI();
+            }, 1000);
+        };
+    </script>
+</body>
+</html>
+

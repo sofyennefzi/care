@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}Patients - Gestion Clinique{% endblock %}
+
+{% block page_title %}Patients{% endblock %}
+
+{% block content %}
+<div class="container-fluid fade-in">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-1" style="font-weight: 700; font-size: 28px; color: var(--text-primary);">
+                <i class="bi bi-people-fill me-2 text-primary"></i>
+                Gestion des Patients
+            </h1>
+            <p class="text-muted mb-0" style="font-size: 14px; font-weight: 500;">Gérez et consultez tous vos patients</p>
+        </div>
+        <button class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#addPatientModal">
+            <i class="bi bi-plus-circle"></i> Ajouter un Patient
+        </button>
+    </div>
+
+    <!-- Search Box -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <form method="GET" action="/clients">
+                <div class="search-box">
+                    <i class="bi bi-search"></i>
+                    <input type="text" class="form-control" name="search" placeholder="Rechercher un client..." value="{{ search }}">
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Patients Table -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nom</th>
+                            <th>Prénom</th>
+                            <th>Téléphone</th>
+                            <th>Email</th>
+                            <th>Date de naissance</th>
+                            <th>Créé le</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for patient in patients %}
+                        <tr>
+                            <td>{{ patient.id }}</td>
+                            <td>{{ patient.nom }}</td>
+                            <td>{{ patient.prenom }}</td>
+                            <td>{{ patient.phone or '-' }}</td>
+                            <td>{{ patient.email or '-' }}</td>
+                            <td>{{ patient.date_naissance | format_date if patient.date_naissance else '-' }}</td>
+                            <td>{{ patient.created_at | format_date if patient.created_at else '-' }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-info" onclick="editPatient({{ patient.id }})">
+                                    <i class="bi bi-pencil"></i> Modifier
+                                </button>
+                                <button class="btn btn-sm btn-danger" onclick="deletePatient({{ patient.id }})">
+                                    <i class="bi bi-trash"></i> Supprimer
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted">Aucun client</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Patient Modal (kept inside content block) -->
+    <div class="modal fade" id="addPatientModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Ajouter un client</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addPatientForm">
+                        <div class="mb-3">
+                            <label class="form-label">Nom *</label>
+                            <input type="text" class="form-control" name="nom" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Prénom *</label>
+                            <input type="text" class="form-control" name="prenom" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Téléphone</label>
+                            <input type="text" class="form-control" name="phone">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" name="email">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Date de naissance</label>
+                            <input type="date" class="form-control" name="date_naissance">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Notes</label>
+                            <textarea class="form-control" name="notes" rows="3"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-primary" onclick="submitPatient()">Enregistrer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function submitPatient() {
+    const form = document.getElementById('addPatientForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+
+    fetch('/api/patients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(err => Promise.reject(err));
+        }
+        return response.json();
+    })
+    .then(() => {
+        showToast('Client ajouté avec succès', 'success');
+        setTimeout(() => location.reload(), 800);
+    })
+    .catch(err => showToast(err.detail || 'Erreur lors de l\'ajout', 'error'));
+}
+</script>
+{% endblock %}

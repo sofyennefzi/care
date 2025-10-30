@@ -22,6 +22,7 @@ class UserResponse(UserBase):
 
     class Config:
         from_attributes = True
+        use_enum_values = True
 
 
 # Patient schemas
@@ -65,11 +66,23 @@ class ServiceBase(BaseModel):
     actif: bool = True
 
 
+class ServiceCreate(ServiceBase):
+    pass
+
+
+class ServiceUpdate(BaseModel):
+    nom: Optional[str] = None
+    description: Optional[str] = None
+    prix_base: Optional[Decimal] = None
+    actif: Optional[bool] = None
+
+
 class ServiceResponse(ServiceBase):
     id: int
 
     class Config:
         from_attributes = True
+        use_enum_values = True
 
 
 # Appointment schemas
@@ -108,6 +121,7 @@ class AppointmentResponse(AppointmentBase):
 
     class Config:
         from_attributes = True
+        use_enum_values = True
 
 
 # Payment schemas
@@ -127,6 +141,7 @@ class PaymentResponse(PaymentBase):
 
     class Config:
         from_attributes = True
+        use_enum_values = True
 
 
 # Stats schemas
@@ -151,4 +166,3 @@ class LoginRequest(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
-
