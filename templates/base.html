@@ -89,6 +89,14 @@
                     <span>Paiements</span>
                 </a>
             </div>
+
+            <div class="nav-section">
+                <span class="nav-section-title">À PROPOS</span>
+                <a class="nav-link {% if request.url.path == '/contact' %}active{% endif %}" href="/contact">
+                    <i class="bi bi-person-lines-fill"></i>
+                    <span>Contact</span>
+                </a>
+            </div>
         </nav>
 
         <div class="sidebar-footer">

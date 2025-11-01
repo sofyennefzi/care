@@ -272,6 +272,20 @@ async def paiements_page(
     )
 
 
+# ============ Contact ============
+
+@app.get("/contact", response_class=HTMLResponse)
+async def contact_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user = Depends(auth.require_login)
+):
+    return templates.TemplateResponse(
+        "contact.html",
+        {"request": request, "user": current_user}
+    )
+
+
 # ============ Services ============
 
 @app.get("/test-services-direct", response_class=HTMLResponse)

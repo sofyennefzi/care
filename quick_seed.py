@@ -46,14 +46,18 @@ try:
         Patient(nom="Nasri", prenom="Mohamed", phone="21654321098", email="mohamed.n@email.tn", date_naissance=date(1975, 3, 10)),
         Patient(nom="Karoui", prenom="Amina", phone="21687654321", email="amina.k@email.tn", date_naissance=date(1988, 11, 5)),
         Patient(nom="Hamdi", prenom="Karim", phone="21623456789", email="karim.h@email.tn", date_naissance=date(1995, 7, 18)),
+        # Patients requiring validation
+        Patient(nom="Gharbi", prenom="Sami", phone="21655667788", email="sami.g@email.tn", date_naissance=date(1990, 4, 12), requires_validation=True),
+        Patient(nom="Mejri", prenom="Leila", phone="21644556677", email="leila.m@email.tn", date_naissance=date(1985, 9, 25), requires_validation=True),
+        Patient(nom="Bouazizi", prenom="Riadh", phone="21633445566", email="riadh.b@email.tn", date_naissance=date(1978, 6, 8), requires_validation=True),
     ]
     db.add_all(patients)
     db.commit()
     # Refresh to get IDs
     for patient in patients:
         db.refresh(patient)
-    print(f"✓ Created {len(patients)} patients")
-    
+    print(f"✓ Created {len(patients)} patients (including 3 requiring validation)")
+
     # Create appointments with proper enum values
     print("Creating appointments...")
     appointments = [

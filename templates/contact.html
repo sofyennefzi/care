@@ -1,0 +1,373 @@
+{% extends "base.html" %}
+
+{% block title %}Contact - Gestion Clinique{% endblock %}
+
+{% block page_title %}Contact{% endblock %}
+
+{% block extra_css %}
+<style>
+    .contact-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .contact-hero {
+        background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+        border-radius: 16px;
+        padding: 50px 40px;
+        color: white;
+        text-align: center;
+        margin-bottom: 40px;
+        box-shadow: 0 8px 32px rgba(52, 152, 219, 0.2);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .contact-hero::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: float 15s ease-in-out infinite;
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translate(0, 0); }
+        50% { transform: translate(-30px, -30px); }
+    }
+
+    .contact-hero h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 15px;
+        position: relative;
+        z-index: 1;
+        text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+
+    .contact-hero p {
+        font-size: 1.15rem;
+        opacity: 0.95;
+        max-width: 650px;
+        margin: 0 auto;
+        line-height: 1.8;
+        position: relative;
+        z-index: 1;
+        font-weight: 300;
+    }
+
+    .profile-section {
+        background: white;
+        border-radius: 20px;
+        padding: 40px;
+        box-shadow: 0 2px 20px rgba(0,0,0,0.05);
+        margin-bottom: 30px;
+        text-align: center;
+    }
+
+    .profile-image-container {
+        margin-bottom: 30px;
+    }
+
+    .profile-image {
+        width: 180px;
+        height: 180px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 5px solid #3498db;
+        box-shadow: 0 10px 30px rgba(52, 152, 219, 0.3);
+        margin: 0 auto;
+        display: block;
+    }
+
+    .profile-name {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #2d3436;
+        margin-bottom: 10px;
+    }
+
+    .profile-title {
+        font-size: 1.2rem;
+        color: #3498db;
+        font-weight: 500;
+        margin-bottom: 20px;
+    }
+
+    .profile-bio {
+        color: #636e72;
+        font-size: 1rem;
+        line-height: 1.6;
+        max-width: 700px;
+        margin: 0 auto 30px;
+    }
+
+    .contact-cards {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        margin-top: 40px;
+        flex-wrap: wrap;
+    }
+
+    .contact-card {
+        background: white;
+        border-radius: 15px;
+        padding: 30px 20px;
+        box-shadow: 0 2px 15px rgba(0,0,0,0.05);
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+        text-align: center;
+        flex: 0 1 220px;
+        min-width: 200px;
+    }
+
+    .contact-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        border-color: #3498db;
+    }
+
+    .contact-card-icon {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+        font-size: 2rem;
+        color: white;
+    }
+
+    .icon-email {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .icon-phone {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    }
+
+    .icon-linkedin {
+        background: linear-gradient(135deg, #0077b5 0%, #00a0dc 100%);
+    }
+
+    .icon-github {
+        background: linear-gradient(135deg, #24292e 0%, #444d56 100%);
+    }
+
+    .icon-portfolio {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .contact-card-label {
+        font-size: 0.9rem;
+        color: #636e72;
+        font-weight: 500;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .contact-card-value {
+        font-size: 0.95rem;
+        color: #2d3436;
+        font-weight: 600;
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .contact-card a {
+        color: inherit;
+        text-decoration: none;
+        display: block;
+    }
+
+    .contact-card a:hover .contact-card-value {
+        color: #3498db;
+    }
+
+    .social-links {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        margin-top: 30px;
+        flex-wrap: wrap;
+    }
+
+    .social-btn {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.5rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        text-decoration: none;
+    }
+
+    .social-btn:hover {
+        transform: translateY(-3px) scale(1.05);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    }
+
+    .social-btn.linkedin {
+        background: linear-gradient(135deg, #0077b5 0%, #00a0dc 100%);
+    }
+
+    .social-btn.github {
+        background: linear-gradient(135deg, #24292e 0%, #444d56 100%);
+    }
+
+    .social-btn.portfolio {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .social-btn.email {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    @media (max-width: 768px) {
+        .contact-hero {
+            padding: 40px 20px;
+        }
+
+        .contact-hero h1 {
+            font-size: 2rem;
+        }
+
+        .profile-section {
+            padding: 30px 20px;
+        }
+
+        .contact-cards {
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .contact-card {
+            width: 100%;
+            max-width: 400px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="contact-container">
+    <!-- Hero Section -->
+    <div class="contact-hero">
+        <h1>Contactez-moi</h1>
+        <p>N'hésitez pas à me contacter pour toute question ou collaboration. Je suis toujours ouvert à discuter de nouveaux projets et opportunités.</p>
+    </div>
+
+    <!-- Profile Section -->
+    <div class="profile-section">
+        <div class="profile-image-container">
+            <img src="/static/profile_picture.jpeg" alt="Profile" class="profile-image" onerror="this.src='https://ui-avatars.com/api/?name=Sofyen+Nefzi&size=180&background=667eea&color=fff&bold=true'">
+        </div>
+        <h2 class="profile-name">Sofyen Nefzi</h2>
+        <p class="profile-title">Full-Stack Developer | Angular, Spring Boot, Python & n8n Automation</p>
+        <p class="profile-bio">
+            I am a creative developer who enjoys pushing boundaries and finding innovative solutions.
+            With strong communication skills and a collaborative nature, I thrive in team environments.
+            My critical thinking helps me analyze situations effectively, and I consistently meet
+            deadlines to deliver quality results on time.
+        </p>
+
+        <!-- Social Links -->
+        <div class="social-links">
+            <a href="mailto:sofien.nefzi@esen.tn" class="social-btn email" title="Email" target="_blank">
+                <i class="bi bi-envelope-fill"></i>
+            </a>
+            <a href="https://www.linkedin.com/in/sofien-nefzi-223651267/" class="social-btn linkedin" title="LinkedIn" target="_blank">
+                <i class="bi bi-linkedin"></i>
+            </a>
+            <a href="https://github.com/sofyennefzi" class="social-btn github" title="GitHub" target="_blank">
+                <i class="bi bi-github"></i>
+            </a>
+            <a href="https://sofiennefzi.me" class="social-btn portfolio" title="Portfolio" target="_blank">
+                <i class="bi bi-globe2"></i>
+            </a>
+        </div>
+    </div>
+
+    <!-- Contact Cards -->
+    <div class="contact-cards">
+        <div class="contact-card">
+            <a href="mailto:sofien.nefzi@esen.tn">
+                <div class="contact-card-icon icon-email">
+                    <i class="bi bi-envelope-fill"></i>
+                </div>
+                <div class="contact-card-label">Email</div>
+                <div class="contact-card-value">sofien.nefzi@esen.tn</div>
+            </a>
+        </div>
+
+        <div class="contact-card">
+            <a href="tel:+21655934066">
+                <div class="contact-card-icon icon-phone">
+                    <i class="bi bi-telephone-fill"></i>
+                </div>
+                <div class="contact-card-label">Téléphone</div>
+                <div class="contact-card-value">+216 55 934 066</div>
+            </a>
+        </div>
+
+        <div class="contact-card">
+            <a href="https://www.linkedin.com/in/sofien-nefzi-223651267/" target="_blank">
+                <div class="contact-card-icon icon-linkedin">
+                    <i class="bi bi-linkedin"></i>
+                </div>
+                <div class="contact-card-label">LinkedIn</div>
+                <div class="contact-card-value">linkedin.com/in/sofien-nefzi-223651267</div>
+            </a>
+        </div>
+
+        <div class="contact-card">
+            <a href="https://github.com/sofyennefzi" target="_blank">
+                <div class="contact-card-icon icon-github">
+                    <i class="bi bi-github"></i>
+                </div>
+                <div class="contact-card-label">GitHub</div>
+                <div class="contact-card-value">github.com/sofyennefzi</div>
+            </a>
+        </div>
+
+        <div class="contact-card">
+            <a href="https://sofiennefzi.me" target="_blank">
+                <div class="contact-card-icon icon-portfolio">
+                    <i class="bi bi-globe2"></i>
+                </div>
+                <div class="contact-card-label">Portfolio</div>
+                <div class="contact-card-value">sofiennefzi.me</div>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Add smooth scroll behavior
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) {
+                target.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }
+        });
+    });
+</script>
+{% endblock %}
+
